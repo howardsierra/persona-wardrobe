@@ -7,8 +7,10 @@ Inspired by [SillyTavern-Wardrobe](https://github.com/treadyarnen-hue/SillyTaver
 
 ## Features
 
-- **Wardrobe follows your persona.** Switch personas and the wardrobe switches with you, across every character.
-  Prefer the old behaviour? Choose *Per character* or *Per persona + character* in the panel.
+- **Per-chat wardrobes (default).** Each chat has its own wardrobe, saved inside the chat file, so the same persona can dress
+  completely differently on different cards or in different storylines. Branching a chat copies its wardrobe.
+  A brand-new chat starts from the last wardrobe you used with that persona + character (or your persona's wardrobe), so you don't retype everything.
+- **Other scopes** if you prefer: *Per persona* (one wardrobe that follows you everywhere), *Per character*, or *Per persona + character*.
 - **Your own outfit slots.** Starts with Work, Everyday, Formal, Loungewear, Sports, Bedtime. Rename, reorder, delete, or add as many as you like.
 - **Underwear layer** with an on/off toggle.
 - **Prompt injection.** The model is told what you're currently wearing. Position, depth and role are configurable.
@@ -33,6 +35,7 @@ Then open the Extensions panel and expand **Persona Wardrobe**.
 
 ## Notes
 
+- In *Per chat* mode with no chat open, edits go to your persona's wardrobe.
 - The current persona is read from SillyTavern's persona manager (by avatar), so two personas with the same name still get separate wardrobes.
 - Existing data from the original Wardrobe extension isn't imported. It uses a different settings key, so both can be installed side by side (but don't enable both, or the model gets two clothing prompts).
 

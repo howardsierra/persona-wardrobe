@@ -22,10 +22,12 @@ export const DEFAULT_OUTFITS = [
 export const NONE_ID = 'none';
 
 // How wardrobes are keyed.
+//   chat               - one wardrobe per chat, saved inside the chat file (branches inherit it)
 //   persona            - one wardrobe per persona, follows you across every character
 //   character          - one wardrobe per character card (like the original Wardrobe)
 //   persona_character  - one wardrobe per persona + character pair
 export const SCOPES = {
+    chat: 'Per chat',
     persona: 'Per persona',
     character: 'Per character',
     persona_character: 'Per persona + character',
@@ -42,10 +44,12 @@ export function makeWardrobe() {
 
 export const defaultSettings = {
     enabled: true,
-    scope: 'persona',
+    scope: 'chat',
     modelChanges: true,      // let the model switch outfits via a hidden tag
     position: POSITION.IN_CHAT,
     depth: 0,
     role: ROLE.SYSTEM,
     wardrobes: {},
+    // Last chat wardrobe used per persona + character, used to seed new chats.
+    chatTemplates: {},
 };

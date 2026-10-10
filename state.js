@@ -10,7 +10,16 @@ export function ctx() {
 
 export function save() {
     const c = ctx();
-    try { c?.saveSettingsDebounced?.(); } catch (e) { console.error(LOG, 'save error', e); }
+    try {
+        if (usingChatScope() && c.chatMetadata[MODULE_NAME]) {
+            // Remember this chat's wardrobe as the starting point for the next new chat with this pair.
+            getSettings().chatTemplates[getPairKey()] = structuredClone(c.chatMetadata[MODULE_NAME]);
+            c.saveMetadataDebounced?.();
+        }
+        c?.saveSettingsDebounced?.();
+    } catch (e) {
+        console.error(LOG, 'save error', e);
+    }
 }
 
 // personas.js exports the active persona's avatar id. It's loaded lazily so a
@@ -64,8 +73,32 @@ export function getCharacterKey() {
     return 'char:__none__';
 }
 
+function getChatId() {
+    const c = ctx();
+    try {
+        const id = typeof c?.getCurrentChatId === 'function' ? c.getCurrentChatId() : c?.chatId;
+        return id ? String(id) : null;
+    } catch {
+        return null;
+    }
+}
+
+function getPairKey() {
+    return getPersonaKey() + '|' + getCharacterKey();
+}
+
+// Chat scope needs an open chat with metadata; otherwise we fall back to the persona wardrobe.
+function usingChatScope() {
+    const c = ctx();
+    return getSettings().scope === 'chat' && !!getChatId() && !!c?.chatMetadata && typeof c.chatMetadata === 'object';
+}
+
 export function getWardrobeKey() {
     const s = getSettings();
+    if (s.scope === 'chat') {
+        const id = getChatId();
+        return id ? 'chat:' + id : getPersonaKey();
+    }
     switch (s.scope) {
         case 'character': return getCharacterKey();
         case 'persona_character': return getPersonaKey() + '|' + getCharacterKey();
@@ -82,6 +115,9 @@ export function getOwnerLabel() {
     try {
         if (c?.groupId) charName = c.groups?.find(g => g.id === c.groupId)?.name || 'group';
     } catch { /* ignore */ }
+    if (s.scope === 'chat') {
+        return getChatId() ? `this chat (${persona} with ${charName})` : `${persona} (no chat open)`;
+    }
     switch (s.scope) {
         case 'character': return charName;
         case 'persona_character': return `${persona} with ${charName}`;
@@ -122,8 +158,23 @@ function normalizeWardrobe(w) {
     return w;
 }
 
-// The wardrobe for the current scope key, created on first use.
+// Starting wardrobe for a chat that doesn't have one yet: the last chat wardrobe used with
+// this persona + character, else that pair's wardrobe, else the persona's, else empty slots.
+function seedChatWardrobe() {
+    const s = getSettings();
+    const source = s.chatTemplates[getPairKey()] || s.wardrobes[getPairKey()] || s.wardrobes[getPersonaKey()];
+    return source && typeof source === 'object' ? structuredClone(source) : makeWardrobe();
+}
+
+// The wardrobe for the current scope, created on first use.
 export function getWardrobe() {
+    if (usingChatScope()) {
+        const meta = ctx().chatMetadata;
+        if (!meta[MODULE_NAME] || typeof meta[MODULE_NAME] !== 'object') {
+            meta[MODULE_NAME] = seedChatWardrobe();
+        }
+        return normalizeWardrobe(meta[MODULE_NAME]);
+    }
     const s = getSettings();
     const key = getWardrobeKey();
     if (!s.wardrobes[key] || typeof s.wardrobes[key] !== 'object') {
