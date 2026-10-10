@@ -8,8 +8,6 @@ It works in [SillyTavern](https://github.com/SillyTavern/SillyTavern) and [Rever
   <img src="images/quick-reverie.png" alt="The quick-switch popup on a phone in Reverie" width="300">
 </p>
 
-Inspired by [SillyTavern-Wardrobe](https://github.com/treadyarnen-hue/SillyTavern-Wardrobe) by Treaya, rebuilt around personas.
-
 ## Features
 
 - **Per-chat wardrobes (default).** Each chat has its own wardrobe, saved inside the chat file, so the same persona can dress
