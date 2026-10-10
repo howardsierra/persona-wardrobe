@@ -1,118 +1,867 @@
-/* Persona Wardrobe - settings drawer */
+/* Persona Wardrobe
+   Colours come from the host theme: Reverie's --rv-* variables first, then SillyTavern's
+   --SmartTheme* variables, then neutral fallbacks. */
 
-.persona-wardrobe .pw-title {
-    font-weight: 600;
-    opacity: 0.8;
-    margin: 12px 0 6px;
+.persona-wardrobe {
+    --pw-accent: var(--rv-accent, var(--SmartThemeQuoteColor, #a78bfa));
+    --pw-accent-2: var(--rv-accent-2, color-mix(in srgb, var(--pw-accent) 72%, #000));
+    --pw-border: var(--SmartThemeBorderColor, color-mix(in srgb, currentColor 18%, transparent));
+    --pw-surface: color-mix(in srgb, currentColor 4%, transparent);
+    --pw-surface-2: color-mix(in srgb, currentColor 8%, transparent);
+    --pw-faint: color-mix(in srgb, currentColor 55%, transparent);
+    --pw-tint: color-mix(in srgb, var(--pw-accent) 14%, transparent);
+    --pw-radius: var(--rv-radius-sm, 12px);
+    --pw-ease: var(--rv-ease, cubic-bezier(.2, .8, .2, 1));
 }
 
-.persona-wardrobe .pw-row {
+.persona-wardrobe *,
+.persona-wardrobe *::before,
+.persona-wardrobe *::after {
+    box-sizing: border-box;
+}
+
+.persona-wardrobe button {
+    font: inherit;
+    color: inherit;
+}
+
+/* ---------- drawer header ---------- */
+
+.persona-wardrobe .pw-head {
     display: flex;
     align-items: center;
     gap: 8px;
-    margin: 6px 0;
-}
-
-.persona-wardrobe .pw-row > label {
-    flex: 0 0 auto;
-    min-width: 9em;
-    font-size: 0.9em;
-    opacity: 0.85;
-}
-
-.persona-wardrobe .pw-row > select,
-.persona-wardrobe .pw-row > input {
-    flex: 1 1 auto;
     min-width: 0;
-    margin: 0;
+    flex: 1 1 auto;
+}
+
+.persona-wardrobe .pw-head-badge {
+    display: inline-grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 8px;
+    flex: 0 0 auto;
+    color: #fff;
+    background: linear-gradient(135deg, var(--pw-accent), var(--pw-accent-2));
+    box-shadow: 0 2px 8px color-mix(in srgb, var(--pw-accent) 35%, transparent);
+    font-size: 0.8em;
+}
+
+.persona-wardrobe .pw-head-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    min-width: 0;
+    margin-left: auto;
+    margin-right: 6px;
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-size: 0.78em;
+    font-weight: 500;
+    color: var(--pw-accent);
+    background: var(--pw-tint);
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.persona-wardrobe .pw-head-chip span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.persona-wardrobe .pw-head-chip.is-off {
+    color: var(--pw-faint);
+    background: var(--pw-surface-2);
+}
+
+/* ---------- top line ---------- */
+
+.persona-wardrobe .pw-topline {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin: 6px 0 10px;
 }
 
 .persona-wardrobe .pw-owner {
-    margin: 8px 0 4px;
-    font-size: 0.9em;
-    opacity: 0.85;
-}
-
-.persona-wardrobe .pw-preview {
-    font-size: 0.85em;
-    font-style: italic;
-    opacity: 0.75;
-    margin: 4px 0 6px;
-    white-space: pre-wrap;
-    word-break: break-word;
-}
-
-.persona-wardrobe .pw-outfit {
-    border: 1px solid var(--SmartThemeBorderColor, rgba(128, 128, 128, 0.35));
-    border-radius: 6px;
-    padding: 6px;
-    margin-bottom: 8px;
-}
-
-.persona-wardrobe .pw-outfit.pw-worn {
-    border-color: var(--SmartThemeQuoteColor, #e18a24);
-    box-shadow: 0 0 0 1px var(--SmartThemeQuoteColor, #e18a24) inset;
-}
-
-.persona-wardrobe .pw-outfit-head {
     display: flex;
     align-items: center;
     gap: 6px;
-    margin-bottom: 4px;
+    min-width: 0;
+    font-size: 0.85em;
+    color: var(--pw-faint);
 }
 
-.persona-wardrobe .pw-label {
-    flex: 1 1 auto;
+.persona-wardrobe .pw-owner span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ---------- "now wearing" card ---------- */
+
+.persona-wardrobe .pw-now {
+    position: relative;
+    display: flex;
+    gap: 14px;
+    padding: 14px;
+    border-radius: calc(var(--pw-radius) + 4px);
+    border: 1px solid color-mix(in srgb, var(--pw-accent) 35%, var(--pw-border));
+    background:
+        radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--pw-accent) 22%, transparent), transparent 60%),
+        radial-gradient(120% 140% at 100% 100%, color-mix(in srgb, var(--pw-accent-2) 14%, transparent), transparent 60%),
+        var(--pw-surface);
+    overflow: hidden;
+    transition: filter .25s var(--pw-ease), opacity .25s var(--pw-ease);
+}
+
+.persona-wardrobe .pw-now.pw-paused {
+    filter: grayscale(.85);
+    opacity: .7;
+}
+
+.persona-wardrobe .pw-now-icon {
+    display: grid;
+    place-items: center;
+    flex: 0 0 auto;
+    width: 52px;
+    height: 52px;
+    border-radius: 16px;
+    font-size: 1.35em;
+    color: #fff;
+    background: linear-gradient(135deg, var(--pw-accent), var(--pw-accent-2));
+    box-shadow: 0 6px 18px color-mix(in srgb, var(--pw-accent) 40%, transparent);
+}
+
+.persona-wardrobe .pw-now-body {
     min-width: 0;
-    margin: 0;
+    flex: 1 1 auto;
+}
+
+.persona-wardrobe .pw-now-kicker {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.7em;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--pw-accent);
+}
+
+.persona-wardrobe .pw-now-name {
+    font-family: var(--rv-heading-font, inherit);
+    font-size: 1.2em;
+    font-weight: 700;
+    line-height: 1.25;
+    margin: 2px 0 4px;
+    overflow-wrap: anywhere;
+}
+
+.persona-wardrobe .pw-now-desc {
+    font-size: 0.88em;
+    line-height: 1.45;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    max-height: 9em;
+    overflow-y: auto;
+}
+
+.persona-wardrobe .pw-muted {
+    color: var(--pw-faint);
+    font-style: italic;
+}
+
+.persona-wardrobe .pw-now-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.persona-wardrobe .pw-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    max-width: 100%;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-size: 0.75em;
+    font-weight: 500;
+    letter-spacing: normal;
+    text-transform: none;
+    background: var(--pw-tint);
+    border: 1px solid color-mix(in srgb, var(--pw-accent) 25%, transparent);
+    overflow-wrap: anywhere;
+}
+
+.persona-wardrobe .pw-chip i {
+    color: var(--pw-accent);
+}
+
+.persona-wardrobe .pw-chip-off {
+    background: var(--pw-surface-2);
+    border-color: var(--pw-border);
+    color: var(--pw-faint);
+}
+
+.persona-wardrobe .pw-chip-off i {
+    color: inherit;
+}
+
+.persona-wardrobe .pw-chip-warn {
+    padding: 0 7px;
+    color: #d97706;
+    background: color-mix(in srgb, #f59e0b 16%, transparent);
+    border-color: color-mix(in srgb, #f59e0b 35%, transparent);
+}
+
+/* ---------- section labels ---------- */
+
+.persona-wardrobe .pw-section-label {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin: 16px 2px 8px;
+    font-size: 0.72em;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--pw-faint);
+}
+
+.persona-wardrobe .pw-count {
+    font-weight: 500;
+    letter-spacing: normal;
+    text-transform: none;
+}
+
+/* ---------- outfit tiles ---------- */
+
+.persona-wardrobe .pw-tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(82px, 1fr));
+    gap: 8px;
+}
+
+.persona-wardrobe .pw-tile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 68px;
+    padding: 10px 6px;
+    border-radius: var(--pw-radius);
+    border: 1px solid var(--pw-border);
+    background: var(--pw-surface);
+    cursor: pointer;
+    font-size: 0.8em;
+    line-height: 1.2;
+    text-align: center;
+    transition: transform .15s var(--pw-ease), background .2s, border-color .2s, box-shadow .2s;
+}
+
+.persona-wardrobe .pw-tile i {
+    font-size: 1.35em;
+    color: var(--pw-accent);
+    transition: transform .2s var(--pw-ease);
+}
+
+.persona-wardrobe .pw-tile span {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.persona-wardrobe .pw-tile:hover {
+    background: var(--pw-surface-2);
+    border-color: color-mix(in srgb, var(--pw-accent) 45%, var(--pw-border));
+}
+
+.persona-wardrobe .pw-tile:hover i {
+    transform: translateY(-1px) scale(1.08);
+}
+
+.persona-wardrobe .pw-tile:active {
+    transform: scale(.96);
+}
+
+.persona-wardrobe .pw-tile:focus-visible,
+.persona-wardrobe .pw-card-head:focus-visible,
+.persona-wardrobe button:focus-visible {
+    outline: 2px solid var(--pw-accent);
+    outline-offset: 2px;
+}
+
+.persona-wardrobe .pw-tile.is-empty {
+    opacity: .5;
+}
+
+.persona-wardrobe .pw-tile.is-active {
+    opacity: 1;
+    color: #fff;
+    border-color: transparent;
+    background: linear-gradient(135deg, var(--pw-accent), var(--pw-accent-2));
+    box-shadow: 0 4px 14px color-mix(in srgb, var(--pw-accent) 40%, transparent);
     font-weight: 600;
 }
 
-.persona-wardrobe .pw-icons {
+.persona-wardrobe .pw-tile.is-active i {
+    color: #fff;
+}
+
+/* ---------- switches ---------- */
+
+.persona-wardrobe .pw-switch-row {
     display: flex;
-    gap: 2px;
+    align-items: center;
+    gap: 10px;
+    margin: 10px 0 0;
+    padding: 9px 12px;
+    border-radius: var(--pw-radius);
+    background: var(--pw-surface);
+    border: 1px solid var(--pw-border);
+    cursor: pointer;
+    user-select: none;
+    font-size: 0.9em;
+}
+
+.persona-wardrobe .pw-switch-row.pw-switch-compact {
+    margin: 0;
+    padding: 4px 4px 4px 10px;
+    border-radius: 999px;
+    font-size: 0.82em;
     flex: 0 0 auto;
 }
 
-.persona-wardrobe .pw-icon {
+.persona-wardrobe .pw-switch-row.is-disabled {
+    opacity: .5;
+}
+
+.persona-wardrobe .pw-switch-icon {
+    width: 18px;
+    text-align: center;
+    color: var(--pw-accent);
+}
+
+.persona-wardrobe .pw-switch-label {
+    flex: 1 1 auto;
+}
+
+/* Visually hide the native checkbox but keep it focusable. Selector is specific on purpose:
+   host apps style checkboxes inside .inline-drawer-content. */
+.persona-wardrobe .pw-switch-row input.pw-switch-input[type="checkbox"] {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: 0;
+    padding: 0;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.persona-wardrobe .pw-switch-track {
+    position: relative;
+    flex: 0 0 auto;
+    width: 38px;
+    height: 22px;
+    border-radius: 999px;
+    background: color-mix(in srgb, currentColor 22%, transparent);
+    transition: background .2s var(--pw-ease);
+}
+
+.persona-wardrobe .pw-switch-track::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .3);
+    transition: transform .2s var(--pw-ease);
+}
+
+.persona-wardrobe .pw-switch-input:checked + .pw-switch-track {
+    background: linear-gradient(135deg, var(--pw-accent), var(--pw-accent-2));
+}
+
+.persona-wardrobe .pw-switch-input:checked + .pw-switch-track::after {
+    transform: translateX(16px);
+}
+
+.persona-wardrobe .pw-switch-input:focus-visible + .pw-switch-track {
+    outline: 2px solid var(--pw-accent);
+    outline-offset: 2px;
+}
+
+/* ---------- outfit cards ---------- */
+
+.persona-wardrobe .pw-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.persona-wardrobe .pw-card {
+    border-radius: var(--pw-radius);
+    border: 1px solid var(--pw-border);
+    background: var(--pw-surface);
+    overflow: hidden;
+    transition: border-color .2s, box-shadow .2s, background .2s;
+}
+
+.persona-wardrobe .pw-card.is-active {
+    border-color: color-mix(in srgb, var(--pw-accent) 55%, var(--pw-border));
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--pw-accent) 30%, transparent) inset;
+}
+
+.persona-wardrobe .pw-card.is-open {
+    background: var(--pw-surface-2);
+}
+
+.persona-wardrobe .pw-card-static {
+    margin-top: 8px;
+}
+
+.persona-wardrobe .pw-card-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
     cursor: pointer;
-    padding: 4px 5px;
-    opacity: 0.6;
+    user-select: none;
 }
 
-.persona-wardrobe .pw-icon:hover {
-    opacity: 1;
+.persona-wardrobe .pw-card-head-static {
+    cursor: default;
+    padding-bottom: 0;
 }
 
-.persona-wardrobe .pw-worn .pw-icon[data-action="wear"] {
-    opacity: 1;
-    color: var(--SmartThemeQuoteColor, #e18a24);
+.persona-wardrobe .pw-card-icon {
+    display: grid;
+    place-items: center;
+    flex: 0 0 auto;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    border-radius: 10px;
+    border: 1px solid color-mix(in srgb, var(--pw-accent) 25%, transparent);
+    background: var(--pw-tint);
+    color: var(--pw-accent);
+    cursor: pointer;
+    transition: transform .15s var(--pw-ease), background .2s;
 }
 
-.persona-wardrobe textarea {
+.persona-wardrobe button.pw-card-icon:hover {
+    transform: scale(1.06);
+    background: color-mix(in srgb, var(--pw-accent) 24%, transparent);
+}
+
+.persona-wardrobe .pw-card-head-static .pw-card-icon {
+    cursor: default;
+}
+
+.persona-wardrobe .pw-card.is-empty:not(.is-open) .pw-card-icon {
+    opacity: .6;
+}
+
+.persona-wardrobe .pw-card-titles {
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
+.persona-wardrobe .pw-card-name {
+    font-weight: 600;
+    font-size: 0.92em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.persona-wardrobe .pw-card-snippet {
+    font-size: 0.78em;
+    color: var(--pw-faint);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.persona-wardrobe .pw-card.is-empty .pw-card-snippet {
+    font-style: italic;
+}
+
+.persona-wardrobe .pw-card.is-open .pw-card-snippet {
+    display: none;
+}
+
+.persona-wardrobe .pw-badge {
+    flex: 0 0 auto;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 0.7em;
+    font-weight: 600;
+    color: #fff;
+    background: linear-gradient(135deg, var(--pw-accent), var(--pw-accent-2));
+}
+
+.persona-wardrobe .pw-card-caret {
+    flex: 0 0 auto;
+    font-size: 0.8em;
+    color: var(--pw-faint);
+    transition: transform .25s var(--pw-ease);
+}
+
+.persona-wardrobe .pw-card.is-open .pw-card-caret {
+    transform: rotate(180deg);
+}
+
+.persona-wardrobe .pw-card-body {
+    display: none;
+    flex-direction: column;
+    gap: 8px;
+    padding: 2px 10px 10px;
+}
+
+.persona-wardrobe .pw-card.is-open .pw-card-body,
+.persona-wardrobe .pw-card-static .pw-card-body {
+    display: flex;
+}
+
+.persona-wardrobe .pw-card-static .pw-card-body {
+    padding-top: 8px;
+}
+
+.persona-wardrobe .pw-card-body .text_pole,
+.persona-wardrobe .pw-field .text_pole {
     width: 100%;
-    min-height: 48px;
-    resize: vertical;
-    box-sizing: border-box;
     margin: 0;
 }
 
-.persona-wardrobe .pw-field {
-    margin: 8px 0;
+.persona-wardrobe .pw-label {
+    font-weight: 600;
 }
 
-.persona-wardrobe .pw-field > label {
-    display: block;
-    font-size: 0.9em;
-    opacity: 0.85;
-    margin-bottom: 3px;
+.persona-wardrobe textarea.pw-text {
+    min-height: 64px;
+    resize: vertical;
+    line-height: 1.45;
+}
+
+.persona-wardrobe .pw-card-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.persona-wardrobe .pw-spacer {
+    flex: 1 1 auto;
+}
+
+.persona-wardrobe .pw-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--pw-accent) 45%, transparent);
+    background: var(--pw-tint);
+    color: var(--pw-accent);
+    font-size: 0.85em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform .15s var(--pw-ease), background .2s;
+}
+
+.persona-wardrobe .pw-btn:hover:not([disabled]) {
+    background: color-mix(in srgb, var(--pw-accent) 24%, transparent);
+}
+
+.persona-wardrobe .pw-btn:active:not([disabled]) {
+    transform: scale(.96);
+}
+
+.persona-wardrobe .pw-btn.is-active {
+    color: #fff;
+    border-color: transparent;
+    background: linear-gradient(135deg, var(--pw-accent), var(--pw-accent-2));
+    cursor: default;
+}
+
+.persona-wardrobe .pw-icon-btn {
+    display: inline-grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: 0;
+    border-radius: 9px;
+    background: transparent;
+    color: var(--pw-faint);
+    cursor: pointer;
+    transition: background .2s, color .2s;
+}
+
+.persona-wardrobe .pw-icon-btn:hover:not([disabled]) {
+    background: var(--pw-surface-2);
+    color: inherit;
+}
+
+.persona-wardrobe .pw-icon-btn[disabled] {
+    opacity: .3;
+    cursor: default;
+}
+
+.persona-wardrobe .pw-icon-btn.pw-danger:hover:not([disabled]) {
+    color: #ef4444;
+    background: color-mix(in srgb, #ef4444 14%, transparent);
+}
+
+.persona-wardrobe .pw-icon-picker {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(36px, 1fr));
+    gap: 4px;
+    padding: 8px;
+    border-radius: 10px;
+    background: var(--pw-surface);
+    border: 1px dashed var(--pw-border);
+}
+
+.persona-wardrobe .pw-icon-choice {
+    display: grid;
+    place-items: center;
+    height: 36px;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: 9px;
+    background: transparent;
+    cursor: pointer;
+    color: var(--pw-faint);
+    transition: background .15s, color .15s;
+}
+
+.persona-wardrobe .pw-icon-choice:hover {
+    background: var(--pw-tint);
+    color: var(--pw-accent);
+}
+
+.persona-wardrobe .pw-icon-choice.is-active {
+    color: var(--pw-accent);
+    border-color: var(--pw-accent);
+    background: var(--pw-tint);
 }
 
 .persona-wardrobe .pw-add {
-    width: fit-content;
-    margin: 0 0 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    margin-top: 8px;
+    padding: 10px;
+    border-radius: var(--pw-radius);
+    border: 1.5px dashed color-mix(in srgb, var(--pw-accent) 45%, var(--pw-border));
+    background: transparent;
+    color: var(--pw-accent);
+    font-size: 0.88em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .2s, border-color .2s;
 }
 
-.persona-wardrobe .pw-advanced {
-    margin-top: 10px;
+.persona-wardrobe .pw-add:hover {
+    background: var(--pw-tint);
+    border-color: var(--pw-accent);
+}
+
+/* ---------- settings ---------- */
+
+.persona-wardrobe .pw-settings {
+    margin-top: 14px;
+    border-radius: var(--pw-radius);
+    border: 1px solid var(--pw-border);
+    background: var(--pw-surface);
+}
+
+.persona-wardrobe .pw-settings > summary {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+    font-size: 0.9em;
+    font-weight: 600;
+}
+
+.persona-wardrobe .pw-settings > summary::-webkit-details-marker {
+    display: none;
+}
+
+.persona-wardrobe .pw-settings > summary > i:first-child {
+    width: 18px;
+    text-align: center;
+    color: var(--pw-accent);
+}
+
+.persona-wardrobe .pw-settings > summary span {
+    flex: 1 1 auto;
+}
+
+.persona-wardrobe .pw-settings-caret {
+    font-size: 0.8em;
+    color: var(--pw-faint);
+    transition: transform .25s var(--pw-ease);
+}
+
+.persona-wardrobe .pw-settings[open] .pw-settings-caret {
+    transform: rotate(180deg);
+}
+
+.persona-wardrobe .pw-settings-body {
+    padding: 0 12px 12px;
+}
+
+.persona-wardrobe .pw-settings-body > .pw-switch-row:first-child {
+    margin-top: 0;
+}
+
+.persona-wardrobe .pw-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 12px;
+    min-width: 0;
+}
+
+.persona-wardrobe .pw-field > label {
+    font-size: 0.8em;
+    font-weight: 600;
+    color: var(--pw-faint);
+}
+
+.persona-wardrobe .pw-hint {
+    font-size: 0.78em;
+    line-height: 1.4;
+    color: var(--pw-faint);
+}
+
+.persona-wardrobe .pw-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: 10px;
+}
+
+.persona-wardrobe .pw-span-2 {
+    grid-column: span 2;
+}
+
+.persona-wardrobe .pw-field input[disabled] {
+    opacity: .45;
+}
+
+/* ---------- quick-switch popup ---------- */
+
+.pw-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 10050;
+    display: grid;
+    place-items: center;
+    padding: 16px;
+    background: rgba(0, 0, 0, .45);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+    animation: pw-fade .18s ease-out;
+}
+
+.persona-wardrobe .pw-modal {
+    width: min(440px, 100%);
+    max-height: min(88vh, 720px);
+    display: flex;
+    flex-direction: column;
+    border-radius: calc(var(--pw-radius) + 6px);
+    border: 1px solid var(--pw-border);
+    color: var(--SmartThemeBodyColor, inherit);
+    background: var(--rv-bg, var(--SmartThemeBlurTintColor, #1d1d24));
+    box-shadow: 0 24px 60px rgba(0, 0, 0, .45);
+    backdrop-filter: blur(var(--SmartThemeBlurStrength, 14px));
+    -webkit-backdrop-filter: blur(var(--SmartThemeBlurStrength, 14px));
+    overflow: hidden;
+    animation: pw-pop .22s var(--pw-ease);
+}
+
+.persona-wardrobe .pw-modal-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 14px 10px;
+}
+
+.persona-wardrobe .pw-modal-head .pw-head-badge {
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    font-size: 0.95em;
+}
+
+.persona-wardrobe .pw-modal-titles {
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
+.persona-wardrobe .pw-modal-titles b {
+    font-size: 1.05em;
+}
+
+.persona-wardrobe .pw-modal-body {
+    padding: 0 14px 16px;
+    overflow-y: auto;
+}
+
+@keyframes pw-fade {
+    from { opacity: 0; }
+}
+
+@keyframes pw-pop {
+    from { opacity: 0; transform: translateY(8px) scale(.97); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .persona-wardrobe *,
+    .pw-modal-backdrop {
+        animation: none !important;
+        transition: none !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .persona-wardrobe .pw-tiles {
+        grid-template-columns: repeat(auto-fill, minmax(74px, 1fr));
+    }
+
+    .persona-wardrobe .pw-now-icon {
+        width: 44px;
+        height: 44px;
+        border-radius: 13px;
+        font-size: 1.15em;
+    }
+
+    .pw-modal-backdrop {
+        place-items: end center;
+        padding: 0;
+    }
+
+    .persona-wardrobe .pw-modal {
+        width: 100%;
+        max-height: 85vh;
+        border-radius: 20px 20px 0 0;
+        padding-bottom: env(safe-area-inset-bottom);
+    }
 }

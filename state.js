@@ -1,6 +1,6 @@
 // Persona Wardrobe - settings and per-scope wardrobe state
 
-import { MODULE_NAME, LOG, NONE_ID, SCOPES, defaultSettings, makeWardrobe } from './config.js';
+import { MODULE_NAME, LOG, NONE_ID, SCOPES, DEFAULT_OUTFITS, DEFAULT_ICON, defaultSettings, makeWardrobe } from './config.js';
 
 export function ctx() {
     return (typeof SillyTavern !== 'undefined' && typeof SillyTavern.getContext === 'function')
@@ -149,6 +149,7 @@ function normalizeWardrobe(w) {
             id: typeof o.id === 'string' && o.id ? o.id : slugify(o.label || 'outfit'),
             label: typeof o.label === 'string' ? o.label : String(o.id || 'Outfit'),
             text: typeof o.text === 'string' ? o.text : '',
+            icon: validIcon(o.icon) || DEFAULT_OUTFITS.find(d => d.id === o.id)?.icon || DEFAULT_ICON,
         }));
     if (typeof w.underwear !== 'string') w.underwear = '';
     if (typeof w.underwearOn !== 'boolean') w.underwearOn = true;
@@ -181,6 +182,11 @@ export function getWardrobe() {
         s.wardrobes[key] = makeWardrobe();
     }
     return normalizeWardrobe(s.wardrobes[key]);
+}
+
+// Icon names end up in a class attribute, so only allow plain Font Awesome names.
+export function validIcon(icon) {
+    return typeof icon === 'string' && /^[a-z0-9-]{1,40}$/.test(icon) ? icon : null;
 }
 
 export function slugify(label) {

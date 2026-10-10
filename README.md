@@ -1,7 +1,12 @@
 # Persona Wardrobe
 
 A SillyTavern extension that tracks what **your persona** is wearing and keeps the model aware of it every reply.
-It works with SillyTavern and forks that keep its standard extension API (such as Reverie).
+It works in [SillyTavern](https://github.com/SillyTavern/SillyTavern) and [Reverie](https://github.com/howardsierra/roleplay-frontend-personal).
+
+<p align="center">
+  <img src="images/panel-sillytavern.png" alt="The Persona Wardrobe panel in SillyTavern" width="360">
+  <img src="images/quick-reverie.png" alt="The quick-switch popup on a phone in Reverie" width="300">
+</p>
 
 Inspired by [SillyTavern-Wardrobe](https://github.com/treadyarnen-hue/SillyTavern-Wardrobe) by Treaya, rebuilt around personas.
 
@@ -11,11 +16,14 @@ Inspired by [SillyTavern-Wardrobe](https://github.com/treadyarnen-hue/SillyTaver
   completely differently on different cards or in different storylines. Branching a chat copies its wardrobe.
   A brand-new chat starts from the last wardrobe you used with that persona + character (or your persona's wardrobe), so you don't retype everything.
 - **Other scopes** if you prefer: *Per persona* (one wardrobe that follows you everywhere), *Per character*, or *Per persona + character*.
+- **Looks at home in your theme.** A "Now wearing" card, tap-to-wear outfit tiles, and expandable outfit editors with an icon picker.
+  Colours come from your SillyTavern or Reverie theme.
+- **Quick switch from the chat.** Open the wand / ✨ menu next to the message box and choose **Wardrobe** to change outfits without opening the settings. On phones it opens as a bottom sheet.
 - **Your own outfit slots.** Starts with Work, Everyday, Formal, Loungewear, Sports, Bedtime. Rename, reorder, delete, or add as many as you like.
 - **Underwear layer** with an on/off toggle.
 - **Prompt injection.** The model is told what you're currently wearing. Position, depth and role are configurable.
 - **Model-driven changes (optional).** The model can change your outfit when the story calls for it by ending its reply with a hidden tag
-  `<wardrobe outfit="bedtime" underwear="off"/>`. The extension applies it and strips the tag from the message.
+  `<wardrobe outfit="bedtime" underwear="off"/>`. The extension applies it, strips the tag from the message, and shows a small notification (which you can turn off).
 - **Slash commands**
   - `/outfit <name>` (alias `/wardrobe`): change outfit (`/outfit none` for undressed). With no name, it returns what you're wearing.
   - `/underwear on|off|toggle`

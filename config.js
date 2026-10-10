@@ -10,13 +10,24 @@ export const ROLE = { SYSTEM: 0, USER: 1, ASSISTANT: 2 };
 
 // Slots every new wardrobe starts with. Users can rename, delete, or add more.
 export const DEFAULT_OUTFITS = [
-    { id: 'work', label: 'Work' },
-    { id: 'everyday', label: 'Everyday' },
-    { id: 'formal', label: 'Formal' },
-    { id: 'loungewear', label: 'Loungewear' },
-    { id: 'sports', label: 'Sports' },
-    { id: 'bedtime', label: 'Bedtime' },
+    { id: 'work', label: 'Work', icon: 'briefcase' },
+    { id: 'everyday', label: 'Everyday', icon: 'shirt' },
+    { id: 'formal', label: 'Formal', icon: 'gem' },
+    { id: 'loungewear', label: 'Loungewear', icon: 'couch' },
+    { id: 'sports', label: 'Sports', icon: 'dumbbell' },
+    { id: 'bedtime', label: 'Bedtime', icon: 'moon' },
 ];
+
+// Font Awesome (free, solid) icons offered in the outfit icon picker.
+export const ICON_CHOICES = [
+    'shirt', 'vest', 'user-tie', 'briefcase', 'gem', 'crown', 'ring', 'couch',
+    'mug-hot', 'dumbbell', 'person-running', 'person-swimming', 'umbrella-beach', 'sun', 'snowflake', 'cloud-rain',
+    'moon', 'bed', 'heart', 'star', 'fire', 'leaf', 'paw', 'mask',
+    'hat-wizard', 'hat-cowboy', 'graduation-cap', 'glasses', 'socks', 'mitten', 'shoe-prints', 'wand-magic-sparkles',
+];
+export const DEFAULT_ICON = 'shirt';
+export const NONE_ICON = 'bath';
+export const UNDERWEAR_ICON = 'socks';
 
 // Special "outfit" meaning no outer clothing.
 export const NONE_ID = 'none';
@@ -46,6 +57,7 @@ export const defaultSettings = {
     enabled: true,
     scope: 'chat',
     modelChanges: true,      // let the model switch outfits via a hidden tag
+    notify: true,            // toast when the model changes the outfit
     position: POSITION.IN_CHAT,
     depth: 0,
     role: ROLE.SYSTEM,
