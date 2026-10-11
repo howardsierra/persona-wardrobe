@@ -159,6 +159,14 @@ function normalizeWardrobe(w) {
         if (nails && !nails.text && typeof w.nails === 'string') nails.text = w.nails;
         delete w.nails;
     }
+    // Offer built-in details added in later versions (Hair in 1.4) exactly once.
+    // Wardrobes from before this list existed had already been offered Nails and Jewelry.
+    if (!Array.isArray(w.extrasSeen)) w.extrasSeen = ['nails', 'jewelry'];
+    for (const d of DEFAULT_EXTRAS) {
+        if (w.extrasSeen.includes(d.id)) continue;
+        w.extrasSeen.push(d.id);
+        if (!w.extras.some(e => e?.id === d.id)) w.extras.push({ id: d.id, label: d.label, icon: d.icon, text: '' });
+    }
     w.extras = w.extras
         .filter(e => e && typeof e === 'object')
         .map(e => ({

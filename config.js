@@ -23,7 +23,7 @@ export const ICON_CHOICES = [
     'shirt', 'vest', 'user-tie', 'briefcase', 'gem', 'crown', 'ring', 'couch',
     'mug-hot', 'dumbbell', 'person-running', 'person-swimming', 'umbrella-beach', 'sun', 'snowflake', 'cloud-rain',
     'moon', 'bed', 'heart', 'star', 'fire', 'leaf', 'paw', 'mask',
-    'hat-wizard', 'hat-cowboy', 'graduation-cap', 'glasses', 'socks', 'mitten', 'shoe-prints', 'wand-magic-sparkles', 'hand-sparkles', 'palette',
+    'hat-wizard', 'hat-cowboy', 'graduation-cap', 'glasses', 'socks', 'mitten', 'shoe-prints', 'wand-magic-sparkles', 'hand-sparkles', 'palette', 'scissors', 'spray-can-sparkles',
 ];
 export const DEFAULT_ICON = 'shirt';
 export const NONE_ICON = 'bath';
@@ -36,6 +36,8 @@ export const DEFAULT_EXTRAS = [
         placeholder: 'e.g. Short almond nails, glossy cherry red with tiny gold stars on the ring fingers' },
     { id: 'jewelry', label: 'Jewelry', icon: 'ring',
         placeholder: 'e.g. Small gold hoops, a thin chain with a moon pendant, a silver ring on the left thumb' },
+    { id: 'hair', label: 'Hair', icon: 'scissors',
+        placeholder: 'e.g. Shoulder-length copper waves, loose, with a tortoiseshell clip holding back one side' },
 ];
 export const EXTRA_ICON = 'star';
 // Tag attributes and ids an extra can't use.
@@ -61,6 +63,8 @@ export function makeWardrobe() {
         outfits: DEFAULT_OUTFITS.map(o => ({ ...o, text: '' })),
         underwear: '',
         extras: DEFAULT_EXTRAS.map(({ id, label, icon }) => ({ id, label, icon, text: '' })),
+        // Built-in details this wardrobe has been offered, so new ones appear once and removed ones stay removed.
+        extrasSeen: DEFAULT_EXTRAS.map(d => d.id),
         active: 'everyday',
         underwearOn: true,
     };
