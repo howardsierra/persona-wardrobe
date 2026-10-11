@@ -50,8 +50,19 @@ function underwearCommand(_args, value) {
     return w.underwearOn ? 'on' : 'off';
 }
 
+// /nails [description]  - set the nail description, or print it when called with no text.
+function nailsCommand(_args, value) {
+    const v = String(value ?? '').trim();
+    const w = getWardrobe();
+    if (!v) return w.nails.trim();
+    w.nails = v.toLowerCase() === 'none' ? '' : v;
+    commit();
+    return w.nails;
+}
+
 function registerSlash(c) {
     const outfitHelp = 'Switch your persona\'s current outfit by name (or "none"). With no name, returns what you\'re wearing.';
+    const nailsHelp = 'Set your persona\'s nails / nail art (or "none" to clear). With no text, returns the current description.';
     const uwHelp = 'Set whether your persona is wearing underwear: on, off, or toggle. With no argument, returns on/off.';
 
     if (c.SlashCommandParser?.addCommandObject && c.SlashCommand?.fromProps) {
@@ -79,7 +90,15 @@ function registerSlash(c) {
             unnamedArgumentList: arg('on | off | toggle', ['on', 'off', 'toggle']),
             helpString: uwHelp,
         }));
+        SlashCommandParser.addCommandObject(SlashCommand.fromProps({
+            name: 'nails',
+            callback: nailsCommand,
+            returns: 'the nail description',
+            unnamedArgumentList: arg('nail description'),
+            helpString: nailsHelp,
+        }));
     } else if (typeof c.registerSlashCommand === 'function') {
+        c.registerSlashCommand('nails', nailsCommand, [], nailsHelp, true, true);
         c.registerSlashCommand('outfit', outfitCommand, ['wardrobe'], outfitHelp, true, true);
         c.registerSlashCommand('underwear', underwearCommand, [], uwHelp, true, true);
     }
@@ -94,12 +113,14 @@ function registerMacros(c) {
             const w = getWardrobe();
             return w.underwearOn ? w.underwear.trim() : 'none';
         },
+        nails: () => getWardrobe().nails.trim(),
     };
     const descriptions = {
         outfit: 'Full description of what your persona is currently wearing.',
         outfit_name: 'Name of your persona\'s current outfit.',
         outfit_text: 'Text of your persona\'s current outfit.',
         underwear: 'Your persona\'s underwear, or "none" if not worn.',
+        nails: 'Your persona\'s nails / nail art.',
     };
     for (const [name, fn] of Object.entries(macros)) {
         try {

@@ -26,8 +26,8 @@ function ensureStylesheet() {
 // Messages whose tags we stripped before render, so the rendered block can be refreshed.
 const strippedIds = new Set();
 
-function refresh() {
-    syncUI();
+function refresh(opts) {
+    syncUI(opts);
     updatePromptInjection();
 }
 
@@ -45,7 +45,7 @@ function handleIncoming(id) {
     if (!msg || msg.is_user || !hasTag(msg.mes)) return false;
 
     if (applyTag(msg.mes)) {
-        refresh();
+        refresh({ force: true });
         notifyChange(c);
     }
     stripMessage(msg);

@@ -152,6 +152,7 @@ function normalizeWardrobe(w) {
             icon: validIcon(o.icon) || DEFAULT_OUTFITS.find(d => d.id === o.id)?.icon || DEFAULT_ICON,
         }));
     if (typeof w.underwear !== 'string') w.underwear = '';
+    if (typeof w.nails !== 'string') w.nails = '';
     if (typeof w.underwearOn !== 'boolean') w.underwearOn = true;
     if (typeof w.active !== 'string' || (w.active !== NONE_ID && !w.outfits.some(o => o.id === w.active))) {
         w.active = w.outfits[0]?.id || NONE_ID;

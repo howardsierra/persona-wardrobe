@@ -1,6 +1,6 @@
 // Persona Wardrobe - settings drawer and quick-switch popup
 
-import { LOG, NONE_ID, SCOPES, POSITION, ROLE, ICON_CHOICES, DEFAULT_ICON, NONE_ICON, UNDERWEAR_ICON } from './config.js';
+import { LOG, NONE_ID, SCOPES, POSITION, ROLE, ICON_CHOICES, DEFAULT_ICON, NONE_ICON, UNDERWEAR_ICON, NAILS_ICON } from './config.js';
 import { getSettings, getWardrobe, getOwnerLabel, uniqueId, validIcon, save } from './state.js';
 import { updatePromptInjection } from './prompts.js';
 
@@ -60,6 +60,8 @@ function renderNow(root) {
     let uwChip;
     if (w.underwearOn) uwChip = `<span class="pw-chip">${icon(UNDERWEAR_ICON)}${uw ? esc(snippet(uw, 48)) : 'Underwear on'}</span>`;
     else uwChip = `<span class="pw-chip pw-chip-off">${icon(UNDERWEAR_ICON)}No underwear</span>`;
+    const nails = w.nails.trim();
+    const nailsChip = nails ? `<span class="pw-chip" title="${esc(nails)}">${icon(NAILS_ICON)}${esc(snippet(nails, 48))}</span>` : '';
 
     el.classList.toggle('pw-paused', !s.enabled);
     el.innerHTML = `
@@ -69,7 +71,7 @@ function renderNow(root) {
             <div class="pw-now-name">${esc(name)}</div>
             ${o ? `<div class="pw-now-desc${desc ? '' : ' pw-muted'}">${desc ? esc(desc) : 'Nothing written for this outfit yet.'}</div>`
                 : '<div class="pw-now-desc pw-muted">No outer clothing.</div>'}
-            <div class="pw-now-chips">${uwChip}</div>
+            <div class="pw-now-chips">${uwChip}${nailsChip}</div>
         </div>`;
 }
 
@@ -167,6 +169,19 @@ export function setupUI(attempt = 0) {
                     </div>
                 </div>
 
+                <div class="pw-card pw-card-static">
+                    <div class="pw-card-head pw-card-head-static">
+                        <span class="pw-card-icon">${icon(NAILS_ICON)}</span>
+                        <div class="pw-card-titles">
+                            <div class="pw-card-name">Nails</div>
+                            <div class="pw-card-snippet">Worn with every outfit</div>
+                        </div>
+                    </div>
+                    <div class="pw-card-body">
+                        <textarea id="pw_nails" class="text_pole pw-text" rows="2" placeholder="e.g. Short almond nails, glossy cherry red with tiny gold stars on the ring fingers"></textarea>
+                    </div>
+                </div>
+
                 <details class="pw-settings">
                     <summary>${icon('sliders')}<span>Settings</span>${icon('chevron-down', 'pw-settings-caret')}</summary>
                     <div class="pw-settings-body">
@@ -233,6 +248,12 @@ function bindHandlers() {
 
     $id('pw_underwear').addEventListener('input', e => {
         getWardrobe().underwear = e.target.value;
+        changed();
+        renderAllQuick();
+    });
+
+    $id('pw_nails').addEventListener('input', e => {
+        getWardrobe().nails = e.target.value;
         changed();
         renderAllQuick();
     });
@@ -429,7 +450,9 @@ export function syncUI({ force = false } = {}) {
     // Don't clobber a field the user is typing in.
     const focused = document.activeElement;
     const uw = $id('pw_underwear');
-    if (focused !== uw) uw.value = w.underwear;
+    if (force || focused !== uw) uw.value = w.underwear;
+    const nails = $id('pw_nails');
+    if (force || focused !== nails) nails.value = w.nails;
     if (force || !$id('pw_outfits').contains(focused)) renderCards();
 }
 

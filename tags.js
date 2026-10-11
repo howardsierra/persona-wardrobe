@@ -44,6 +44,9 @@ export function applyTag(text) {
         if (on !== w.underwearOn) { w.underwearOn = on; changed = true; }
     }
 
+    const nails = attr(attrs, 'nails');
+    if (nails && nails.length <= 500 && nails !== w.nails.trim()) { w.nails = nails; changed = true; }
+
     if (changed) save();
     return changed;
 }

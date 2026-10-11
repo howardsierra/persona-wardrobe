@@ -23,11 +23,12 @@ export const ICON_CHOICES = [
     'shirt', 'vest', 'user-tie', 'briefcase', 'gem', 'crown', 'ring', 'couch',
     'mug-hot', 'dumbbell', 'person-running', 'person-swimming', 'umbrella-beach', 'sun', 'snowflake', 'cloud-rain',
     'moon', 'bed', 'heart', 'star', 'fire', 'leaf', 'paw', 'mask',
-    'hat-wizard', 'hat-cowboy', 'graduation-cap', 'glasses', 'socks', 'mitten', 'shoe-prints', 'wand-magic-sparkles',
+    'hat-wizard', 'hat-cowboy', 'graduation-cap', 'glasses', 'socks', 'mitten', 'shoe-prints', 'wand-magic-sparkles', 'hand-sparkles', 'palette',
 ];
 export const DEFAULT_ICON = 'shirt';
 export const NONE_ICON = 'bath';
 export const UNDERWEAR_ICON = 'socks';
+export const NAILS_ICON = 'hand-sparkles';
 
 // Special "outfit" meaning no outer clothing.
 export const NONE_ID = 'none';
@@ -48,6 +49,7 @@ export function makeWardrobe() {
     return {
         outfits: DEFAULT_OUTFITS.map(o => ({ ...o, text: '' })),
         underwear: '',
+        nails: '',
         active: 'everyday',
         underwearOn: true,
     };

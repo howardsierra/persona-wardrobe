@@ -33,6 +33,9 @@ export function describeClothing() {
     } else if (hasOuter) {
         lines.push(`${name} is not wearing any underwear.`);
     }
+
+    const nails = w.nails.trim();
+    if (nails) lines.push(`${name}'s nails: ${nails}`);
     return lines.join('\n');
 }
 
@@ -57,8 +60,8 @@ function buildPrompt() {
         const ids = [...filled.map(o => o.id), NONE_ID].join('|');
         out += `[${name}'s wardrobe]\n${options.join('\n')}\n`
             + `[Wardrobe instructions] If ${name}'s clothing changes during your reply (changes into another outfit, undresses, `
-            + `or puts underwear on/takes it off), end your reply with a hidden tag on its own line: `
-            + `<wardrobe outfit="${ids}" underwear="on|off"/>. `
+            + `puts underwear on/takes it off, or gets their nails done), end your reply with a hidden tag on its own line: `
+            + `<wardrobe outfit="${ids}" underwear="on|off" nails="new nail description"/>. `
             + `Include only the attribute(s) that changed, only when the clothing actually changes, `
             + `and never mention or describe the tag in your prose.`;
     }
