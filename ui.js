@@ -1,6 +1,6 @@
 // Persona Wardrobe - settings drawer and quick-switch popup
 
-import { LOG, NONE_ID, SCOPES, POSITION, ROLE, ICON_CHOICES, DEFAULT_ICON, NONE_ICON, UNDERWEAR_ICON, NAILS_ICON } from './config.js';
+import { LOG, NONE_ID, SCOPES, POSITION, ROLE, ICON_CHOICES, DEFAULT_ICON, NONE_ICON, UNDERWEAR_ICON, DEFAULT_EXTRAS, EXTRA_ICON } from './config.js';
 import { getSettings, getWardrobe, getOwnerLabel, uniqueId, validIcon, save } from './state.js';
 import { updatePromptInjection } from './prompts.js';
 
@@ -60,8 +60,8 @@ function renderNow(root) {
     let uwChip;
     if (w.underwearOn) uwChip = `<span class="pw-chip">${icon(UNDERWEAR_ICON)}${uw ? esc(snippet(uw, 48)) : 'Underwear on'}</span>`;
     else uwChip = `<span class="pw-chip pw-chip-off">${icon(UNDERWEAR_ICON)}No underwear</span>`;
-    const nails = w.nails.trim();
-    const nailsChip = nails ? `<span class="pw-chip" title="${esc(nails)}">${icon(NAILS_ICON)}${esc(snippet(nails, 48))}</span>` : '';
+    const extraChips = w.extras.filter(e => e.text.trim()).map(e =>
+        `<span class="pw-chip" title="${esc(`${e.label}: ${e.text.trim()}`)}">${icon(e.icon)}${esc(snippet(e.text, 48))}</span>`).join('');
 
     el.classList.toggle('pw-paused', !s.enabled);
     el.innerHTML = `
@@ -71,7 +71,7 @@ function renderNow(root) {
             <div class="pw-now-name">${esc(name)}</div>
             ${o ? `<div class="pw-now-desc${desc ? '' : ' pw-muted'}">${desc ? esc(desc) : 'Nothing written for this outfit yet.'}</div>`
                 : '<div class="pw-now-desc pw-muted">No outer clothing.</div>'}
-            <div class="pw-now-chips">${uwChip}${nailsChip}</div>
+            <div class="pw-now-chips">${uwChip}${extraChips}</div>
         </div>`;
 }
 
@@ -159,6 +159,7 @@ export function setupUI(attempt = 0) {
                 <div class="pw-cards" id="pw_outfits"></div>
                 <button type="button" class="pw-add" id="pw_add">${icon('plus')}<span>Add outfit</span></button>
 
+                <div class="pw-section-label">Always worn</div>
                 <div class="pw-card pw-card-static">
                     <div class="pw-card-head pw-card-head-static">
                         <span class="pw-card-icon">${icon(UNDERWEAR_ICON)}</span>
@@ -169,18 +170,8 @@ export function setupUI(attempt = 0) {
                     </div>
                 </div>
 
-                <div class="pw-card pw-card-static">
-                    <div class="pw-card-head pw-card-head-static">
-                        <span class="pw-card-icon">${icon(NAILS_ICON)}</span>
-                        <div class="pw-card-titles">
-                            <div class="pw-card-name">Nails</div>
-                            <div class="pw-card-snippet">Worn with every outfit</div>
-                        </div>
-                    </div>
-                    <div class="pw-card-body">
-                        <textarea id="pw_nails" class="text_pole pw-text" rows="2" placeholder="e.g. Short almond nails, glossy cherry red with tiny gold stars on the ring fingers"></textarea>
-                    </div>
-                </div>
+                <div class="pw-cards pw-extras" id="pw_extras"></div>
+                <button type="button" class="pw-add" id="pw_add_extra">${icon('plus')}<span>Add detail</span></button>
 
                 <details class="pw-settings">
                     <summary>${icon('sliders')}<span>Settings</span>${icon('chevron-down', 'pw-settings-caret')}</summary>
@@ -252,11 +243,7 @@ function bindHandlers() {
         renderAllQuick();
     });
 
-    $id('pw_nails').addEventListener('input', e => {
-        getWardrobe().nails = e.target.value;
-        changed();
-        renderAllQuick();
-    });
+    bindExtras();
 
     $id('pw_add').addEventListener('click', () => {
         const w = getWardrobe();
@@ -408,6 +395,106 @@ function renderCards() {
     $id('pw_count').textContent = `${filled}/${n} filled`;
 }
 
+// ---------- "always worn" details (nails, jewelry, ...) ----------
+
+const extraKey = (id) => 'extra:' + id;
+
+function renderExtras() {
+    const w = getWardrobe();
+    $id('pw_extras').innerHTML = w.extras.map(e => {
+        const preset = DEFAULT_EXTRAS.find(d => d.id === e.id);
+        const placeholder = preset?.placeholder || `Describe your ${(e.label || 'detail').toLowerCase()}...`;
+        const picker = iconPickerFor === extraKey(e.id) ? `
+            <div class="pw-icon-picker" role="listbox" aria-label="Choose an icon">
+                ${ICON_CHOICES.map(ic => `<button type="button" class="pw-icon-choice${ic === e.icon ? ' is-active' : ''}"
+                    data-action="pick-icon" data-icon="${ic}" title="${ic}">${icon(ic)}</button>`).join('')}
+            </div>` : '';
+        return `
+        <div class="pw-card pw-card-static pw-extra" data-id="${esc(e.id)}">
+            <div class="pw-card-head pw-card-head-static">
+                <button type="button" class="pw-card-icon" data-action="icon" title="Change icon">${icon(e.icon)}</button>
+                <div class="pw-card-titles">
+                    <input type="text" class="pw-extra-label" value="${esc(e.label)}" maxlength="30" placeholder="Detail name" aria-label="Detail name" />
+                    <div class="pw-card-snippet">Worn with every outfit</div>
+                </div>
+                <button type="button" class="pw-icon-btn pw-danger" data-action="delete" title="Remove ${esc(e.label || 'detail')}">${icon('trash-can')}</button>
+            </div>
+            <div class="pw-card-body">
+                ${picker}
+                <textarea class="text_pole pw-text" rows="2" placeholder="${esc(placeholder)}" aria-label="${esc(e.label || 'Detail')}">${esc(e.text)}</textarea>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function bindExtras() {
+    const list = $id('pw_extras');
+    const extraOf = (el) => {
+        const card = el.closest('.pw-extra');
+        const w = getWardrobe();
+        return { card, w, e: card ? w.extras.find(x => x.id === card.dataset.id) : null };
+    };
+
+    list.addEventListener('input', ev => {
+        const { e } = extraOf(ev.target);
+        if (!e) return;
+        if (ev.target.classList.contains('pw-text')) e.text = ev.target.value;
+        else if (ev.target.classList.contains('pw-extra-label')) e.label = ev.target.value;
+        else return;
+        changed();
+        renderAllQuick();
+    });
+
+    // The id is the tag attribute the model writes, so re-slug it once a rename is finished.
+    list.addEventListener('change', ev => {
+        if (!ev.target.classList.contains('pw-extra-label')) return;
+        const { card, w, e } = extraOf(ev.target);
+        if (!e) return;
+        if (!e.label.trim()) { e.label = 'Detail'; ev.target.value = e.label; }
+        const newId = uniqueId(w, e.label, e.id, 'extras');
+        if (newId !== e.id) {
+            if (iconPickerFor === extraKey(e.id)) iconPickerFor = extraKey(newId);
+            e.id = newId;
+            card.dataset.id = newId;
+        }
+        changed();
+    });
+
+    list.addEventListener('click', ev => {
+        const btn = ev.target.closest('[data-action]');
+        if (!btn || !list.contains(btn)) return;
+        const { w, e } = extraOf(btn);
+        if (!e) return;
+        switch (btn.dataset.action) {
+            case 'icon':
+                iconPickerFor = iconPickerFor === extraKey(e.id) ? null : extraKey(e.id);
+                break;
+            case 'pick-icon':
+                e.icon = validIcon(btn.dataset.icon) || EXTRA_ICON;
+                iconPickerFor = null;
+                changed();
+                break;
+            case 'delete':
+                if (e.text.trim() && !confirm(`Remove "${e.label}"?`)) return;
+                w.extras.splice(w.extras.indexOf(e), 1);
+                changed();
+                break;
+            default:
+                return;
+        }
+        syncUI({ force: true });
+    });
+
+    $id('pw_add_extra').addEventListener('click', () => {
+        const w = getWardrobe();
+        const id = uniqueId(w, 'Detail', null, 'extras');
+        w.extras.push({ id, label: 'Detail', text: '', icon: EXTRA_ICON });
+        changed();
+        syncUI({ force: true });
+        list.querySelector(`.pw-extra[data-id="${CSS.escape(id)}"] .pw-extra-label`)?.select();
+    });
+}
+
 function renderHeadChip() {
     const chip = $id('pw_head_chip');
     if (!chip) return;
@@ -451,8 +538,7 @@ export function syncUI({ force = false } = {}) {
     const focused = document.activeElement;
     const uw = $id('pw_underwear');
     if (force || focused !== uw) uw.value = w.underwear;
-    const nails = $id('pw_nails');
-    if (force || focused !== nails) nails.value = w.nails;
+    if (force || !$id('pw_extras').contains(focused)) renderExtras();
     if (force || !$id('pw_outfits').contains(focused)) renderCards();
 }
 

@@ -28,7 +28,18 @@ export const ICON_CHOICES = [
 export const DEFAULT_ICON = 'shirt';
 export const NONE_ICON = 'bath';
 export const UNDERWEAR_ICON = 'socks';
-export const NAILS_ICON = 'hand-sparkles';
+
+// "Always worn" details: layers that stay the same whatever outfit is on.
+// Users can rename, delete, or add more. Each id doubles as the hidden-tag attribute name.
+export const DEFAULT_EXTRAS = [
+    { id: 'nails', label: 'Nails', icon: 'hand-sparkles',
+        placeholder: 'e.g. Short almond nails, glossy cherry red with tiny gold stars on the ring fingers' },
+    { id: 'jewelry', label: 'Jewelry', icon: 'ring',
+        placeholder: 'e.g. Small gold hoops, a thin chain with a moon pendant, a silver ring on the left thumb' },
+];
+export const EXTRA_ICON = 'star';
+// Tag attributes and ids an extra can't use.
+export const RESERVED_IDS = ['outfit', 'underwear', 'none'];
 
 // Special "outfit" meaning no outer clothing.
 export const NONE_ID = 'none';
@@ -49,7 +60,7 @@ export function makeWardrobe() {
     return {
         outfits: DEFAULT_OUTFITS.map(o => ({ ...o, text: '' })),
         underwear: '',
-        nails: '',
+        extras: DEFAULT_EXTRAS.map(({ id, label, icon }) => ({ id, label, icon, text: '' })),
         active: 'everyday',
         underwearOn: true,
     };

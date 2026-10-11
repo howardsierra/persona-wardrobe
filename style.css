@@ -500,6 +500,41 @@
     display: none;
 }
 
+/* Editable title on "always worn" cards: looks like a heading until hovered or focused. */
+.persona-wardrobe .pw-card-titles input.pw-extra-label {
+    display: block;
+    width: 100%;
+    margin: -2px 0 0 -6px;
+    padding: 1px 6px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: 0.92em;
+    font-weight: 600;
+    box-shadow: none;
+    outline: none;
+    transition: border-color .15s, background .15s;
+}
+
+.persona-wardrobe .pw-card-titles input.pw-extra-label:hover {
+    border-color: var(--pw-border);
+}
+
+.persona-wardrobe .pw-card-titles input.pw-extra-label:focus {
+    border-color: var(--pw-accent);
+    background: var(--pw-surface);
+}
+
+.persona-wardrobe .pw-extras {
+    margin-top: 8px;
+}
+
+.persona-wardrobe .pw-extras .pw-card-static {
+    margin-top: 0;
+}
+
 .persona-wardrobe .pw-badge {
     flex: 0 0 auto;
     padding: 2px 8px;

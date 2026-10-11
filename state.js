@@ -1,6 +1,6 @@
 // Persona Wardrobe - settings and per-scope wardrobe state
 
-import { MODULE_NAME, LOG, NONE_ID, SCOPES, DEFAULT_OUTFITS, DEFAULT_ICON, defaultSettings, makeWardrobe } from './config.js';
+import { MODULE_NAME, LOG, NONE_ID, SCOPES, DEFAULT_OUTFITS, DEFAULT_ICON, DEFAULT_EXTRAS, EXTRA_ICON, RESERVED_IDS, defaultSettings, makeWardrobe } from './config.js';
 
 export function ctx() {
     return (typeof SillyTavern !== 'undefined' && typeof SillyTavern.getContext === 'function')
@@ -152,7 +152,21 @@ function normalizeWardrobe(w) {
             icon: validIcon(o.icon) || DEFAULT_OUTFITS.find(d => d.id === o.id)?.icon || DEFAULT_ICON,
         }));
     if (typeof w.underwear !== 'string') w.underwear = '';
-    if (typeof w.nails !== 'string') w.nails = '';
+    if (!Array.isArray(w.extras)) w.extras = fresh.extras;
+    // 1.2 stored nails as a plain field; move it into the extras list.
+    if ('nails' in w) {
+        const nails = w.extras.find(e => e?.id === 'nails');
+        if (nails && !nails.text && typeof w.nails === 'string') nails.text = w.nails;
+        delete w.nails;
+    }
+    w.extras = w.extras
+        .filter(e => e && typeof e === 'object')
+        .map(e => ({
+            id: typeof e.id === 'string' && /^[a-z][a-z0-9_]*$/.test(e.id) ? e.id : slugify(e.label || 'detail'),
+            label: typeof e.label === 'string' ? e.label : String(e.id || 'Detail'),
+            text: typeof e.text === 'string' ? e.text : '',
+            icon: validIcon(e.icon) || DEFAULT_EXTRAS.find(d => d.id === e.id)?.icon || EXTRA_ICON,
+        }));
     if (typeof w.underwearOn !== 'boolean') w.underwearOn = true;
     if (typeof w.active !== 'string' || (w.active !== NONE_ID && !w.outfits.some(o => o.id === w.active))) {
         w.active = w.outfits[0]?.id || NONE_ID;
@@ -195,12 +209,14 @@ export function slugify(label) {
     return base || 'outfit';
 }
 
-// A slug unique within the wardrobe (and never the reserved 'none').
-export function uniqueId(w, label, ignoreId = null) {
-    const base = slugify(label);
+// A slug unique within the wardrobe's outfits (or extras), never a reserved word.
+// Extras ids are used as tag attribute names, so they always start with a letter.
+export function uniqueId(w, label, ignoreId = null, list = 'outfits') {
+    let base = slugify(label);
+    if (list === 'extras' && !/^[a-z]/.test(base)) base = 'detail_' + base;
     let id = base;
     let n = 2;
-    while (id === NONE_ID || w.outfits.some(o => o.id === id && o.id !== ignoreId)) {
+    while (RESERVED_IDS.includes(id) || w[list].some(o => o.id === id && o.id !== ignoreId)) {
         id = `${base}_${n++}`;
     }
     return id;

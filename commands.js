@@ -1,6 +1,6 @@
 // Persona Wardrobe - slash commands and macros
 
-import { LOG, NONE_ID } from './config.js';
+import { LOG, NONE_ID, DEFAULT_EXTRAS } from './config.js';
 import { ctx, getWardrobe, findOutfit, save } from './state.js';
 import { describeClothing, updatePromptInjection } from './prompts.js';
 
@@ -50,19 +50,25 @@ function underwearCommand(_args, value) {
     return w.underwearOn ? 'on' : 'off';
 }
 
-// /nails [description]  - set the nail description, or print it when called with no text.
-function nailsCommand(_args, value) {
-    const v = String(value ?? '').trim();
-    const w = getWardrobe();
-    if (!v) return w.nails.trim();
-    w.nails = v.toLowerCase() === 'none' ? '' : v;
-    commit();
-    return w.nails;
+// /nails, /jewelry [description]  - set an "always worn" detail, or print it when called with no text.
+function extraCommand(id) {
+    return (_args, value) => {
+        const v = String(value ?? '').trim();
+        const e = getWardrobe().extras.find(x => x.id === id);
+        if (!e) {
+            globalThis.toastr?.warning?.(`This wardrobe has no "${id}" detail.`);
+            return '';
+        }
+        if (!v) return e.text.trim();
+        e.text = v.toLowerCase() === 'none' ? '' : v;
+        commit();
+        return e.text;
+    };
 }
 
 function registerSlash(c) {
     const outfitHelp = 'Switch your persona\'s current outfit by name (or "none"). With no name, returns what you\'re wearing.';
-    const nailsHelp = 'Set your persona\'s nails / nail art (or "none" to clear). With no text, returns the current description.';
+    const extraHelp = (label) => `Set your persona's ${label.toLowerCase()} (or "none" to clear). With no text, returns the current description.`;
     const uwHelp = 'Set whether your persona is wearing underwear: on, off, or toggle. With no argument, returns on/off.';
 
     if (c.SlashCommandParser?.addCommandObject && c.SlashCommand?.fromProps) {
@@ -90,15 +96,17 @@ function registerSlash(c) {
             unnamedArgumentList: arg('on | off | toggle', ['on', 'off', 'toggle']),
             helpString: uwHelp,
         }));
-        SlashCommandParser.addCommandObject(SlashCommand.fromProps({
-            name: 'nails',
-            callback: nailsCommand,
-            returns: 'the nail description',
-            unnamedArgumentList: arg('nail description'),
-            helpString: nailsHelp,
-        }));
+        for (const e of DEFAULT_EXTRAS) {
+            SlashCommandParser.addCommandObject(SlashCommand.fromProps({
+                name: e.id,
+                callback: extraCommand(e.id),
+                returns: `the ${e.label.toLowerCase()} description`,
+                unnamedArgumentList: arg(`${e.label.toLowerCase()} description`),
+                helpString: extraHelp(e.label),
+            }));
+        }
     } else if (typeof c.registerSlashCommand === 'function') {
-        c.registerSlashCommand('nails', nailsCommand, [], nailsHelp, true, true);
+        for (const e of DEFAULT_EXTRAS) c.registerSlashCommand(e.id, extraCommand(e.id), [], extraHelp(e.label), true, true);
         c.registerSlashCommand('outfit', outfitCommand, ['wardrobe'], outfitHelp, true, true);
         c.registerSlashCommand('underwear', underwearCommand, [], uwHelp, true, true);
     }
@@ -113,15 +121,17 @@ function registerMacros(c) {
             const w = getWardrobe();
             return w.underwearOn ? w.underwear.trim() : 'none';
         },
-        nails: () => getWardrobe().nails.trim(),
     };
     const descriptions = {
         outfit: 'Full description of what your persona is currently wearing.',
         outfit_name: 'Name of your persona\'s current outfit.',
         outfit_text: 'Text of your persona\'s current outfit.',
         underwear: 'Your persona\'s underwear, or "none" if not worn.',
-        nails: 'Your persona\'s nails / nail art.',
     };
+    for (const e of DEFAULT_EXTRAS) {
+        macros[e.id] = () => getWardrobe().extras.find(x => x.id === e.id)?.text.trim() || '';
+        descriptions[e.id] = `Your persona's ${e.label.toLowerCase()}.`;
+    }
     for (const [name, fn] of Object.entries(macros)) {
         try {
             if (typeof c.registerMacro === 'function') c.registerMacro(name, fn, descriptions[name]);
