@@ -3,16 +3,21 @@
 // Both send a small background request to the model, separate from the chat.
 
 import { LOG, NONE_ID } from './config.js';
-import { ctx, getSettings, getWardrobe, getWardrobeKey, save } from './state.js';
+import { ctx, getSettings, getWardrobe, getWardrobeKey, uniqueId, save } from './state.js';
 import { updatePromptInjection } from './prompts.js';
+import { SLOTS, loadCatalog, relevantSample, normalizePieces, hasAnyPiece, composeText, guessGender } from './catalog.js';
 
 const MAX_TEXT = 600;
 
 let onChange = () => {};
 export function setStylistListener(fn) { onChange = fn; }
 
+// Opens the outfit-ideas popup; set by the UI.
+let openLooksUI = () => {};
+export function setLooksOpener(fn) { openLooksUI = fn; }
+
 // What's running right now, for the UI.
-export const status = { styling: false, checking: false };
+export const status = { styling: false, checking: false, planning: false };
 
 // One level of undo for the last styling run, kept in memory.
 let lastUndo = null;
@@ -38,8 +43,16 @@ function notifyUI() {
     try { onChange({}); } catch { /* ignore */ }
 }
 
-function toast(kind, text, opts = {}) {
-    try { globalThis.toastr?.[kind]?.(text, 'Wardrobe', { timeOut: 4000, ...opts }); } catch { /* ignore */ }
+// SillyTavern's toastr takes timeOut, Reverie's takes timeout; pass both.
+function toast(kind, text, { timeout = 4000, onClick = null } = {}) {
+    try {
+        const node = globalThis.toastr?.[kind]?.(text, 'Wardrobe', { timeOut: timeout, timeout, extendedTimeOut: 3000, closeButton: !!onClick });
+        const el = node?.get?.(0) ?? node?.[0] ?? node;
+        if (onClick && el?.addEventListener) {
+            el.style.cursor = 'pointer';
+            el.addEventListener('click', () => onClick());
+        }
+    } catch { /* ignore */ }
 }
 
 function userName() {
@@ -217,7 +230,7 @@ export async function styleWardrobe(mode = 'fill', { auto = false } = {}) {
 
     status.styling = true;
     notifyUI();
-    toast('info', `Styling ${name}'s wardrobe from their persona…`, { timeOut: 2500 });
+    toast('info', `Styling ${name}'s wardrobe from their persona…`, { timeout: 2500 });
     try {
         const system = 'You are a costume designer for an interactive story. You design wardrobes that fit a character\'s described personality and style. You reply with JSON only.';
         const reply = await ask(system, buildStylistPrompt(w, desc, targets), { responseLength: 1500 });
@@ -316,8 +329,11 @@ function buildScenePrompt(w, recent) {
         + ` or the scene has clearly moved to a time or place where ${name} would have changed (for example getting ready for bed, the next morning before work, arriving at the gym).`
         + ' If unsure, keep the current outfit.',
         '',
+        `Also: if the story is at, or clearly heading to, an occasion or venue ${name} would dress for (a date, a gala, a wedding, a job interview, a hike, the beach...)`
+        + ` and none of the outfits above suits it, name it in a few words as "occasion" (for example "rooftop cocktail party tonight"). Otherwise leave it empty.`,
+        '',
         'Reply with only this JSON:',
-        `{"outfit":"<one of the ids above>","underwear":"on|off","reason":"a few words"}`,
+        `{"outfit":"<one of the ids above>","underwear":"on|off","occasion":"","reason":"a few words"}`,
     ].join('\n');
 }
 
@@ -352,6 +368,8 @@ export async function sceneCheck() {
             const on = uw === 'on';
             if (on !== w.underwearOn) { w.underwearOn = on; changed = true; }
         }
+        const occasion = cleanValue(data?.occasion).replace(/[.]+$/, '');
+        if (occasion && s.suggestLooks) suggestForOccasion(occasion, key);
         if (!changed) return;
 
         commit();
@@ -359,7 +377,7 @@ export async function sceneCheck() {
             const outfit = w.outfits.find(o => o.id === w.active);
             const what = outfit ? `${userName()} changed into ${outfit.label}` : `${userName()} is now undressed`;
             const reason = cleanValue(data?.reason);
-            toast('info', reason ? `${what}: ${truncate(reason, 80)}` : `${what}.`, { timeOut: 3500 });
+            toast('info', reason ? `${what}: ${truncate(reason, 80)}` : `${what}.`, { timeout: 3500 });
         }
     } catch (e) {
         console.warn(LOG, 'scene check failed', e);
@@ -373,3 +391,166 @@ export async function sceneCheck() {
 export function resetSceneCounter() {
     repliesSinceCheck = 0;
 }
+
+// ---------- outfit ideas (looks built from catalogue pieces) ----------
+
+const sameOccasion = (a, b) => String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
+
+function recentStory(n = 4) {
+    const name = userName();
+    return (ctx()?.chat || []).filter(m => m && !m.is_system && typeof m.mes === 'string' && m.mes.trim()).slice(-n)
+        .map(m => `[${m.name || (m.is_user ? name : 'Narrator')}]: ${truncate(plainMessage(m.mes), 500)}`);
+}
+
+/**
+ * Ask the stylist for outfits built from catalogue pieces.
+ * @param {{occasion: string, count?: number, fixed?: object, includeStory?: boolean}} o
+ *   fixed: pieces already chosen (kept as they are)
+ * @returns {Promise<{name: string, why: string, pieces: object}[]>}
+ */
+export async function requestLooks({ occasion, count = 3, fixed = null, includeStory = false }) {
+    const name = userName();
+    const desc = personaDescription();
+    const w = getWardrobe();
+    const pref = getSettings().builderGender;
+    const gender = pref === 'all' ? '' : (pref || guessGender(desc));
+
+    let samples = '';
+    try {
+        await loadCatalog();
+        const context = `${desc} ${occasion}`;
+        samples = Object.keys(SLOTS).map(k => {
+            const list = relevantSample(k, context, gender, k === 'accessory' ? 20 : 14);
+            return list.length ? `${k}: ${list.join('; ')}` : '';
+        }).filter(Boolean).join('\n');
+    } catch { /* the catalogue is a nice-to-have; the stylist can still invent pieces */ }
+
+    const lines = [
+        count > 1 ? `Build ${count} different outfits for ${name} for: ${occasion}.` : `Build an outfit for ${name} for: ${occasion}.`,
+        '',
+        `${name}'s description:`,
+        '"""',
+        truncate(desc || `(no description; use their existing outfits as a guide to their style)`, 3000),
+        '"""',
+    ];
+    const setting = settingContext();
+    if (setting) lines.push('', setting);
+    if (includeStory) {
+        const story = recentStory();
+        if (story.length) lines.push('', 'What is happening in the story:', ...story);
+    }
+    const existing = w.outfits.filter(o => o.text.trim()).slice(0, 6).map(o => `- ${o.label}: ${truncate(o.text, 160)}`);
+    if (existing.length) lines.push('', `Outfits ${name} already owns (a guide to their taste; don't repeat them):`, ...existing);
+    if (fixed) {
+        const kept = Object.keys(SLOTS).flatMap(k => (Array.isArray(fixed[k]) ? fixed[k] : [fixed[k]]).filter(Boolean).map(v => `- ${k}: ${v}`));
+        if (kept.length) lines.push('', 'Already chosen for this outfit (keep these exactly and build around them):', ...kept);
+    }
+    if (samples) lines.push('', 'Pieces to choose from. Prefer these; you may adjust a colour or detail, or write your own piece when nothing fits:', samples);
+    lines.push(
+        '',
+        'Rules:',
+        '- Each outfit is either separates (top + bottom) or a dress / one-piece. Shoes are expected. Outerwear is optional; 0-3 accessories.',
+        `- Fit the occasion, venue, likely weather and ${name}'s personality, body and style. Clothes only: no hair or makeup.`,
+        count > 1 ? '- Make the outfits clearly different from each other.' : '- Make it look put together.',
+        '- Give each a short name (2-4 words) and one sentence on why it suits the occasion.',
+        '',
+        'Reply with only this JSON:',
+        JSON.stringify({ looks: [{ name: '...', mode: 'separates|dress', top: '', bottom: '', dress: '', outer: '', shoes: '', accessories: [''], why: '...' }] }),
+    );
+
+    const system = 'You are a costume designer for an interactive story. You build outfits that fit a character and an occasion. You reply with JSON only.';
+    const data = parseJsonReply(await ask(system, lines.join('\n'), { responseLength: 1200 }));
+    const raw = Array.isArray(data?.looks) ? data.looks : Array.isArray(data) ? data : data ? [data] : [];
+    const looks = [];
+    for (const l of raw) {
+        if (!l || typeof l !== 'object') continue;
+        const pieces = normalizePieces(l);
+        if (fixed) {
+            const f = normalizePieces(fixed);
+            for (const k of Object.keys(SLOTS)) {
+                if (Array.isArray(f[k]) ? f[k].length : f[k]) pieces[k] = f[k];
+            }
+            if (fixed.mode) pieces.mode = fixed.mode === 'dress' ? 'dress' : 'separates';
+        }
+        if (!hasAnyPiece(pieces)) continue;
+        looks.push({ name: truncate(cleanValue(l.name) || occasion, 40), why: cleanValue(l.why), pieces });
+    }
+    if (!looks.length) throw new Error('the reply had no usable outfits');
+    return looks.slice(0, Math.max(1, count));
+}
+
+export function pendingLooks() {
+    const w = getWardrobe();
+    return w.looks && Array.isArray(w.looks.items) && w.looks.items.length ? w.looks : null;
+}
+
+/** Build outfit ideas for an occasion and keep them on the wardrobe until one is chosen. */
+export async function planOutfits(occasion, { auto = false, key = getWardrobeKey() } = {}) {
+    occasion = String(occasion || '').trim();
+    if (!occasion || status.planning) return false;
+    status.planning = true;
+    notifyUI();
+    if (!auto) toast('info', `Putting together outfits for: ${occasion}…`, { timeout: 2500 });
+    try {
+        const looks = await requestLooks({ occasion, count: 3, includeStory: auto });
+        if (getWardrobeKey() !== key) return false;
+        const w = getWardrobe();
+        w.looks = { occasion, items: looks, at: Date.now(), auto };
+        commit();
+        if (auto) {
+            toast('info', `${userName()} could dress up for ${occasion}. Tap to choose an outfit.`, { timeout: 15000, onClick: () => openLooksUI() });
+        }
+        return true;
+    } catch (e) {
+        console.error(LOG, 'outfit ideas failed', e);
+        if (!auto) toast('error', `Couldn't build outfits: ${e?.message || e}`);
+        return false;
+    } finally {
+        status.planning = false;
+        notifyUI();
+    }
+}
+
+// From the scene check: offer ideas once per occasion.
+function suggestForOccasion(occasion, key) {
+    const w = getWardrobe();
+    if (status.planning || sameOccasion(w.looks?.occasion, occasion)) return;
+    if ((w.lookDismissed || []).some(d => sameOccasion(d, occasion))) return;
+    planOutfits(occasion, { auto: true, key });
+}
+
+export function dismissLooks() {
+    const w = getWardrobe();
+    if (!w.looks) return;
+    w.lookDismissed = [...(w.lookDismissed || []), w.looks.occasion].slice(-20);
+    w.looks = null;
+    commit();
+}
+
+/** Turn a look (or builder result) into a saved outfit and put it on. */
+export function addOutfitFromPieces(label, pieces, { wear = true } = {}) {
+    const w = getWardrobe();
+    const p = normalizePieces(pieces);
+    const name = truncate(String(label || 'New outfit').trim() || 'New outfit', 30);
+    const o = { id: uniqueId(w, name), label: name, text: composeText(p), icon: p.mode === 'dress' ? 'person-dress' : 'wand-magic-sparkles', pieces: p };
+    w.outfits.push(o);
+    if (wear) w.active = o.id;
+    return o;
+}
+
+export function wearLook(index) {
+    const looks = pendingLooks();
+    const look = looks?.items?.[index];
+    if (!look) return false;
+    const w = getWardrobe();
+    const o = addOutfitFromPieces(look.name, look.pieces);
+    w.looks = null;
+    commit();
+    toast('success', `${userName()} is now wearing ${o.label}.`, { timeout: 3000 });
+    return true;
+}
+
+export function lookText(look) {
+    return composeText(normalizePieces(look.pieces));
+}
+

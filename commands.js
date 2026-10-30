@@ -3,7 +3,8 @@
 import { LOG, NONE_ID, DEFAULT_EXTRAS } from './config.js';
 import { ctx, getWardrobe, findOutfit, save } from './state.js';
 import { describeClothing, updatePromptInjection } from './prompts.js';
-import { styleWardrobe, undoStyling } from './stylist.js';
+import { styleWardrobe, undoStyling, planOutfits } from './stylist.js';
+import { openLooks } from './builder.js';
 
 let onChange = () => {};
 
@@ -75,6 +76,18 @@ async function stylistCommand(_args, value) {
     return ok ? describeClothing() : '';
 }
 
+// /plan-outfit <occasion>  - have the stylist build outfit ideas, then show them.
+async function planCommand(_args, value) {
+    const occasion = String(value ?? '').trim();
+    if (!occasion) {
+        openLooks();
+        return '';
+    }
+    const ok = await planOutfits(occasion);
+    if (ok) openLooks();
+    return ok ? occasion : '';
+}
+
 function registerSlash(c) {
     const outfitHelp = 'Switch your persona\'s current outfit by name (or "none"). With no name, returns what you\'re wearing.';
     const extraHelp = (label) => `Set your persona's ${label.toLowerCase()} (or "none" to clear). With no text, returns the current description.`;
@@ -112,6 +125,13 @@ function registerSlash(c) {
             unnamedArgumentList: arg('fill | all | undo', ['fill', 'all', 'undo']),
             helpString: 'Dress your persona from their description. "fill" (default) fills empty slots, "all" restyles everything, "undo" reverts the last styling.',
         }));
+        SlashCommandParser.addCommandObject(SlashCommand.fromProps({
+            name: 'plan-outfit',
+            callback: planCommand,
+            returns: 'the occasion',
+            unnamedArgumentList: arg('the occasion, venue or plan'),
+            helpString: 'Have the stylist build three outfit ideas for an occasion and pick one. With no text, opens the outfit ideas popup.',
+        }));
         for (const e of DEFAULT_EXTRAS) {
             SlashCommandParser.addCommandObject(SlashCommand.fromProps({
                 name: e.id,
@@ -122,6 +142,7 @@ function registerSlash(c) {
             }));
         }
     } else if (typeof c.registerSlashCommand === 'function') {
+        c.registerSlashCommand('plan-outfit', planCommand, [], 'Build outfit ideas for an occasion.', true, true);
         c.registerSlashCommand('stylist', stylistCommand, [], 'Dress your persona from their description: fill, all or undo.', true, true);
         for (const e of DEFAULT_EXTRAS) c.registerSlashCommand(e.id, extraCommand(e.id), [], extraHelp(e.label), true, true);
         c.registerSlashCommand('outfit', outfitCommand, ['wardrobe'], outfitHelp, true, true);

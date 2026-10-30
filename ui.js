@@ -3,7 +3,9 @@
 import { LOG, NONE_ID, SCOPES, POSITION, ROLE, ICON_CHOICES, DEFAULT_ICON, NONE_ICON, UNDERWEAR_ICON, DEFAULT_EXTRAS, EXTRA_ICON } from './config.js';
 import { ctx, getSettings, getWardrobe, getOwnerLabel, uniqueId, validIcon, save } from './state.js';
 import { updatePromptInjection } from './prompts.js';
-import { status, styleWardrobe, undoStyling, canUndo, personaDescription, descriptionChangedSinceStyling, listProfiles } from './stylist.js';
+import { esc, icon, snippet } from './html.js';
+import { status, styleWardrobe, undoStyling, canUndo, personaDescription, descriptionChangedSinceStyling, listProfiles, pendingLooks } from './stylist.js';
+import { openBuilder, openLooks, refreshPopups } from './builder.js';
 
 const PANEL_ID = 'persona_wardrobe_settings';
 const MODAL_ID = 'persona_wardrobe_quick';
@@ -13,19 +15,6 @@ const $id = (id) => document.getElementById(id);
 // UI-only state: which outfit cards are expanded / showing the icon picker.
 const openCards = new Set();
 let iconPickerFor = null;
-
-function esc(s) {
-    return String(s ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
-}
-
-function icon(name, extra = '') {
-    return `<i class="fa-solid fa-${validIcon(name) || DEFAULT_ICON}${extra ? ' ' + extra : ''}" aria-hidden="true"></i>`;
-}
-
-function snippet(text, max = 70) {
-    const t = String(text || '').trim().replace(/\s+/g, ' ');
-    return t.length > max ? t.slice(0, max - 1).trimEnd() + '…' : t;
-}
 
 function changed() {
     save();
@@ -74,7 +63,18 @@ function renderNow(root) {
             ${o ? `<div class="pw-now-desc${desc ? '' : ' pw-muted'}">${desc ? esc(desc) : 'Nothing written for this outfit yet.'}</div>`
                 : '<div class="pw-now-desc pw-muted">No outer clothing.</div>'}
             <div class="pw-now-chips">${uwChip}${extraChips}</div>
+            ${ideasHtml()}
         </div>`;
+}
+
+function ideasHtml() {
+    const pending = pendingLooks();
+    if (pending) {
+        const n = pending.items.length;
+        return `<button type="button" class="pw-ideas" data-pw-looks>${icon('lightbulb')}<span>${n} outfit idea${n === 1 ? '' : 's'} for ${esc(snippet(pending.occasion, 60))}</span><b>Choose</b></button>`;
+    }
+    if (status.planning) return `<div class="pw-ideas is-busy">${icon('spinner', 'fa-spin')}<span>The stylist is putting outfits together…</span></div>`;
+    return '';
 }
 
 function renderTiles(root) {
@@ -103,6 +103,10 @@ function renderQuick(root) {
 
 function bindQuick(root) {
     root.addEventListener('click', e => {
+        if (e.target.closest('[data-pw-looks], [data-pw-plan]')) {
+            openLooks();
+            return;
+        }
         const t = e.target.closest('[data-wear]');
         if (!t || !root.contains(t)) return;
         getWardrobe().active = t.dataset.wear;
@@ -169,12 +173,16 @@ export function setupUI(attempt = 0) {
                     <div class="pw-stylist-actions">
                         <button type="button" class="pw-btn" id="pw_style_fill"><span class="pw-btn-icon">${icon('wand-magic-sparkles')}</span><span>Fill empty slots</span></button>
                         <button type="button" class="pw-btn pw-btn-ghost" id="pw_style_all">${icon('rotate')}<span>Restyle everything</span></button>
+                        <button type="button" class="pw-btn pw-btn-ghost" id="pw_plan">${icon('lightbulb')}<span>Plan an outfit</span></button>
                     </div>
                 </div>
 
                 <div class="pw-section-label">Outfits <span class="pw-count" id="pw_count"></span></div>
                 <div class="pw-cards" id="pw_outfits"></div>
-                <button type="button" class="pw-add" id="pw_add">${icon('plus')}<span>Add outfit</span></button>
+                <div class="pw-add-row">
+                    <button type="button" class="pw-add" id="pw_add">${icon('plus')}<span>Add outfit</span></button>
+                    <button type="button" class="pw-add" id="pw_build_new">${icon('layer-group')}<span>Build outfit</span></button>
+                </div>
 
                 <div class="pw-section-label">Always worn</div>
                 <div class="pw-card pw-card-static">
@@ -198,6 +206,8 @@ export function setupUI(attempt = 0) {
                             'When a wardrobe is completely empty and the persona has a description, the stylist fills it in once.')}
                         ${switchHtml('id="pw_scene_check"', 'Change outfits to fit the scene', 'eye',
                             'After character replies, a short extra request asks which outfit fits the scene now.')}
+                        ${switchHtml('id="pw_suggest_looks"', 'Suggest outfits for occasions', 'lightbulb',
+                            'When the scene check notices an event or venue none of the outfits suit, the stylist builds three ideas and asks you to pick one.')}
                         ${switchHtml('id="pw_model_changes"', 'Let the story model change outfits', 'feather',
                             'The model that writes the story can also switch outfits with a hidden tag at the end of its reply. No extra requests.')}
                         ${switchHtml('id="pw_notify"', 'Notify me about changes', 'circle-info')}
@@ -284,6 +294,9 @@ function bindHandlers() {
         styleWardrobe('all');
     });
     $id('pw_style_undo').addEventListener('click', () => undoStyling());
+    $id('pw_plan').addEventListener('click', () => openLooks());
+    $id('pw_build_new').addEventListener('click', () => openBuilder());
+    $id('pw_suggest_looks').addEventListener('change', e => { s().suggestLooks = e.target.checked; save(); });
     $id('pw_scope').addEventListener('change', e => { s().scope = e.target.value; openCards.clear(); changed(); syncUI({ force: true }); });
     $id('pw_position').addEventListener('change', e => { s().position = Number(e.target.value); changed(); syncDepthState(); });
     $id('pw_depth').addEventListener('input', e => { s().depth = Math.max(0, parseInt(e.target.value, 10) || 0); changed(); });
@@ -385,6 +398,9 @@ function bindHandlers() {
                 w.active = o.id;
                 changed();
                 break;
+            case 'build':
+                openBuilder({ outfitId: o.id });
+                return;
             case 'up':
                 if (i > 0) { [w.outfits[i - 1], w.outfits[i]] = [w.outfits[i], w.outfits[i - 1]]; changed(); }
                 break;
@@ -435,6 +451,7 @@ function renderCards() {
                     <button type="button" class="pw-btn${active ? ' is-active' : ''}" data-action="wear" ${active ? 'disabled' : ''}>
                         ${icon(active ? 'check' : 'shirt')}<span>${active ? 'Wearing' : 'Wear'}</span>
                     </button>
+                    <button type="button" class="pw-btn pw-btn-ghost" data-action="build" title="Build this outfit from pieces">${icon('layer-group')}<span>Build</span></button>
                     <span class="pw-spacer"></span>
                     <button type="button" class="pw-icon-btn" data-action="up" title="Move up" ${i === 0 ? 'disabled' : ''}>${icon('arrow-up')}</button>
                     <button type="button" class="pw-icon-btn" data-action="down" title="Move down" ${i === n - 1 ? 'disabled' : ''}>${icon('arrow-down')}</button>
@@ -603,6 +620,7 @@ function renderAllQuick() {
 // Push the current state into the drawer and popup. Called on load, chat/persona change, and model-driven changes.
 export function syncUI({ force = false } = {}) {
     renderAllQuick();
+    refreshPopups();
     if (!$id(PANEL_ID)) return;
     const s = getSettings();
     const w = getWardrobe();
@@ -614,6 +632,8 @@ export function syncUI({ force = false } = {}) {
     $id('pw_scene_check').checked = !!s.sceneCheck;
     $id('pw_scene_every').value = String(s.sceneEvery || 1);
     $id('pw_scene_every').disabled = !s.sceneCheck;
+    $id('pw_suggest_looks').checked = !!s.suggestLooks;
+    $id('pw_suggest_looks').closest('.pw-switch-row').classList.toggle('is-disabled', !s.sceneCheck);
     renderProfiles();
     renderStylist();
     $id('pw_scope').value = s.scope;
@@ -660,6 +680,7 @@ export function openQuick() {
                 <div class="pw-section-label">Change into</div>
                 <div class="pw-tiles" data-pw-tiles></div>
                 ${switchHtml('data-pw-uw', 'Wearing underwear', UNDERWEAR_ICON)}
+                <button type="button" class="pw-add" data-pw-plan>${icon('lightbulb')}<span>Plan an outfit…</span></button>
             </div>
         </div>
     </div>`);

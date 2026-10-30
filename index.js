@@ -7,7 +7,8 @@ import { setupUI, setupMenuItem, syncUI } from './ui.js';
 import { updatePromptInjection } from './prompts.js';
 import { hasTag, applyTag, stripMessage, rerenderMessage } from './tags.js';
 import { registerCommands } from './commands.js';
-import { setStylistListener, maybeAutoStyle, sceneCheck, resetSceneCounter } from './stylist.js';
+import { setStylistListener, setLooksOpener, maybeAutoStyle, sceneCheck, resetSceneCounter } from './stylist.js';
+import { setBuilderListener, openLooks } from './builder.js';
 
 // Load our stylesheet if the host didn't already (it normally does, from the manifest).
 function ensureStylesheet() {
@@ -112,6 +113,8 @@ jQuery(async () => {
         setupMenuItem();
         registerCommands(syncUI);
         setStylistListener(syncUI);
+        setBuilderListener(syncUI);
+        setLooksOpener(() => openLooks());
         updatePromptInjection();
         lastKey = getWardrobeKey();
 

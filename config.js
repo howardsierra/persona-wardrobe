@@ -79,6 +79,8 @@ export const defaultSettings = {
     sceneCheck: true,        // after replies, ask the model which outfit fits the scene
     sceneEvery: 1,           // ...every N character replies
     profileId: '',           // connection profile for stylist / scene check ('' = the chat's connection)
+    suggestLooks: true,      // when the scene check spots an occasion, build outfit ideas to choose from
+    builderGender: '',       // builder / stylist piece filter: 'f', 'm' or '' (guess from the persona)
     position: POSITION.IN_CHAT,
     depth: 0,
     role: ROLE.SYSTEM,

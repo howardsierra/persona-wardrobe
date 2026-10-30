@@ -14,6 +14,12 @@ It works in [SillyTavern](https://github.com/SillyTavern/SillyTavern) and [Rever
   - New, empty wardrobes are styled **automatically** the first time you open a chat.
   - Use **Fill empty slots** to fill in only the blanks, or **Restyle everything** after you've changed the persona. Both can be undone, and the panel tells you when the description has changed since the last styling.
   - Anything the description already says ("always wears silver rings", "messy black hair") is used exactly.
+- **Outfit builder.** Put an outfit together piece by piece: top, bottom (or a dress / one-piece), outerwear, shoes and accessories.
+  - Pick from a catalogue of about 3,000 clothing pieces, filtered by search, style, colour and women's or men's cuts, or type in your own.
+  - **Surprise me** fills the empty slots at random, and **Stylist pick** has the stylist finish the outfit in your persona's style.
+  - Open it with **Build** on any outfit, or **Build outfit** to make a new one.
+- **Outfit ideas.** Tell the stylist the occasion ("rooftop date at sunset", "hiking in the rain") and it builds three outfits to choose from. Wear one as it is, or open it in the builder to tweak it first.
+  - When the scene check notices the story heading to an event or venue none of your outfits suit, the stylist builds ideas on its own and a notification asks you to pick one. Tap it, or use the banner on the "Now wearing" card.
 - **Automatic outfit changes.** After character replies, a short scene check picks the outfit that fits what's happening: pyjamas when you head to bed, workout clothes at the gym, back to work clothes the next morning. It only changes when the story clearly calls for it.
   - It sends one small extra request per reply (or every 2, 3 or 5 replies). In Settings you can send these requests to a cheaper connection profile, or turn the check off.
 
@@ -34,6 +40,7 @@ It works in [SillyTavern](https://github.com/SillyTavern/SillyTavern) and [Rever
 - **Slash commands**
   - `/outfit <name>` (alias `/wardrobe`): change outfit (`/outfit none` for undressed). With no name, it returns what you're wearing.
   - `/underwear on|off|toggle`
+  - `/plan-outfit <occasion>`: get three outfit ideas for an occasion and choose one.
   - `/stylist [fill|all|undo]`: run the stylist (fill empty slots by default), restyle everything, or undo the last styling.
   - `/hair`, `/nails` and `/jewelry` followed by a description: set them (`none` clears). With no text, they return the current description.
 - **Macros** for use in cards, Author's Note, Quick Replies, etc.: `{{outfit}}`, `{{outfit_name}}`, `{{outfit_text}}`, `{{underwear}}`, `{{hair}}`, `{{nails}}`, `{{jewelry}}`.
@@ -56,6 +63,11 @@ Then open the Extensions panel and expand **Persona Wardrobe**.
 - The current persona is read from SillyTavern's persona manager (by avatar), so two personas with the same name still get separate wardrobes.
 - Existing data from the original Wardrobe extension isn't imported. It uses a different settings key, so both can be installed side by side (but don't enable both, or the model gets two clothing prompts).
 
+## Credits
+
+The outfit builder's clothing pieces come from [CLOVER OOC](https://github.com/aceeenvw/clover-ooc) by **aceenvw**, used under its license, which requires this credit and link for public reuse.
+The pieces are in `data/pieces.json`; please keep this credit if you share or adapt the extension.
+
 ## License
 
-MIT
+The code is MIT. `data/pieces.json` is not covered by the MIT license: it stays under [CLOVER OOC's terms](https://github.com/aceeenvw/clover-ooc#-license) (credit aceenvw and link the repository; don't claim it as your own or repackage it for sale).
