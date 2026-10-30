@@ -140,17 +140,25 @@ export function getSettings() {
     return s;
 }
 
+// Fix up a list of slots in place. Entries keep their identity, so code holding a reference
+// across an await (the stylist, the UI) still writes into the live wardrobe.
+function normalizeSlots(list, validId, fallbackId, fallbackLabel, defaults, fallbackIcon) {
+    for (let i = list.length - 1; i >= 0; i--) {
+        if (!list[i] || typeof list[i] !== 'object') list.splice(i, 1);
+    }
+    for (const o of list) {
+        if (!validId(o.id)) o.id = slugify(o.label || fallbackId);
+        if (typeof o.label !== 'string') o.label = String(o.id || fallbackLabel);
+        if (typeof o.text !== 'string') o.text = '';
+        if (!validIcon(o.icon)) o.icon = defaults.find(d => d.id === o.id)?.icon || fallbackIcon;
+    }
+    return list;
+}
+
 function normalizeWardrobe(w) {
     const fresh = makeWardrobe();
     if (!Array.isArray(w.outfits)) w.outfits = fresh.outfits;
-    w.outfits = w.outfits
-        .filter(o => o && typeof o === 'object')
-        .map(o => ({
-            id: typeof o.id === 'string' && o.id ? o.id : slugify(o.label || 'outfit'),
-            label: typeof o.label === 'string' ? o.label : String(o.id || 'Outfit'),
-            text: typeof o.text === 'string' ? o.text : '',
-            icon: validIcon(o.icon) || DEFAULT_OUTFITS.find(d => d.id === o.id)?.icon || DEFAULT_ICON,
-        }));
+    normalizeSlots(w.outfits, id => typeof id === 'string' && !!id, 'outfit', 'Outfit', DEFAULT_OUTFITS, DEFAULT_ICON);
     if (typeof w.underwear !== 'string') w.underwear = '';
     if (!Array.isArray(w.extras)) w.extras = fresh.extras;
     // 1.2 stored nails as a plain field; move it into the extras list.
@@ -167,14 +175,7 @@ function normalizeWardrobe(w) {
         w.extrasSeen.push(d.id);
         if (!w.extras.some(e => e?.id === d.id)) w.extras.push({ id: d.id, label: d.label, icon: d.icon, text: '' });
     }
-    w.extras = w.extras
-        .filter(e => e && typeof e === 'object')
-        .map(e => ({
-            id: typeof e.id === 'string' && /^[a-z][a-z0-9_]*$/.test(e.id) ? e.id : slugify(e.label || 'detail'),
-            label: typeof e.label === 'string' ? e.label : String(e.id || 'Detail'),
-            text: typeof e.text === 'string' ? e.text : '',
-            icon: validIcon(e.icon) || DEFAULT_EXTRAS.find(d => d.id === e.id)?.icon || EXTRA_ICON,
-        }));
+    normalizeSlots(w.extras, id => typeof id === 'string' && /^[a-z][a-z0-9_]*$/.test(id), 'detail', 'Detail', DEFAULT_EXTRAS, EXTRA_ICON);
     if (typeof w.underwearOn !== 'boolean') w.underwearOn = true;
     if (typeof w.active !== 'string' || (w.active !== NONE_ID && !w.outfits.some(o => o.id === w.active))) {
         w.active = w.outfits[0]?.id || NONE_ID;

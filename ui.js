@@ -1,8 +1,9 @@
 // Persona Wardrobe - settings drawer and quick-switch popup
 
 import { LOG, NONE_ID, SCOPES, POSITION, ROLE, ICON_CHOICES, DEFAULT_ICON, NONE_ICON, UNDERWEAR_ICON, DEFAULT_EXTRAS, EXTRA_ICON } from './config.js';
-import { getSettings, getWardrobe, getOwnerLabel, uniqueId, validIcon, save } from './state.js';
+import { ctx, getSettings, getWardrobe, getOwnerLabel, uniqueId, validIcon, save } from './state.js';
 import { updatePromptInjection } from './prompts.js';
+import { status, styleWardrobe, undoStyling, canUndo, personaDescription, descriptionChangedSinceStyling, listProfiles } from './stylist.js';
 
 const PANEL_ID = 'persona_wardrobe_settings';
 const MODAL_ID = 'persona_wardrobe_quick';
@@ -67,7 +68,8 @@ function renderNow(root) {
     el.innerHTML = `
         <div class="pw-now-icon">${icon(o ? o.icon : NONE_ICON)}</div>
         <div class="pw-now-body">
-            <div class="pw-now-kicker">Now wearing${s.enabled ? '' : ' <span class="pw-chip pw-chip-warn">Paused</span>'}</div>
+            <div class="pw-now-kicker">Now wearing${s.enabled ? '' : ' <span class="pw-chip pw-chip-warn">Paused</span>'}${status.checking
+                ? ` <span class="pw-checking" title="Checking what fits the scene">${icon('spinner', 'fa-spin')}checking scene</span>` : ''}</div>
             <div class="pw-now-name">${esc(name)}</div>
             ${o ? `<div class="pw-now-desc${desc ? '' : ' pw-muted'}">${desc ? esc(desc) : 'Nothing written for this outfit yet.'}</div>`
                 : '<div class="pw-now-desc pw-muted">No outer clothing.</div>'}
@@ -155,6 +157,21 @@ export function setupUI(attempt = 0) {
                 <div class="pw-tiles" data-pw-tiles></div>
                 ${switchHtml('data-pw-uw', 'Wearing underwear', UNDERWEAR_ICON)}
 
+                <div class="pw-stylist" id="pw_stylist">
+                    <div class="pw-stylist-head">
+                        <span class="pw-stylist-badge">${icon('wand-magic-sparkles')}</span>
+                        <div class="pw-stylist-titles">
+                            <b>Stylist</b>
+                            <div class="pw-hint" id="pw_stylist_hint"></div>
+                        </div>
+                        <button type="button" class="pw-icon-btn" id="pw_style_undo" title="Undo the last styling">${icon('rotate-left')}</button>
+                    </div>
+                    <div class="pw-stylist-actions">
+                        <button type="button" class="pw-btn" id="pw_style_fill"><span class="pw-btn-icon">${icon('wand-magic-sparkles')}</span><span>Fill empty slots</span></button>
+                        <button type="button" class="pw-btn pw-btn-ghost" id="pw_style_all">${icon('rotate')}<span>Restyle everything</span></button>
+                    </div>
+                </div>
+
                 <div class="pw-section-label">Outfits <span class="pw-count" id="pw_count"></span></div>
                 <div class="pw-cards" id="pw_outfits"></div>
                 <button type="button" class="pw-add" id="pw_add">${icon('plus')}<span>Add outfit</span></button>
@@ -176,9 +193,31 @@ export function setupUI(attempt = 0) {
                 <details class="pw-settings">
                     <summary>${icon('sliders')}<span>Settings</span>${icon('chevron-down', 'pw-settings-caret')}</summary>
                     <div class="pw-settings-body">
-                        ${switchHtml('id="pw_model_changes"', 'Let the model change outfits', 'wand-magic-sparkles',
-                            'The model can switch outfits with a hidden tag at the end of its reply.')}
-                        ${switchHtml('id="pw_notify"', 'Notify me when it does', 'circle-info')}
+                        <div class="pw-subhead">Automatic</div>
+                        ${switchHtml('id="pw_auto_style"', 'Style new wardrobes from the persona', 'shirt',
+                            'When a wardrobe is completely empty and the persona has a description, the stylist fills it in once.')}
+                        ${switchHtml('id="pw_scene_check"', 'Change outfits to fit the scene', 'eye',
+                            'After character replies, a short extra request asks which outfit fits the scene now.')}
+                        ${switchHtml('id="pw_model_changes"', 'Let the story model change outfits', 'feather',
+                            'The model that writes the story can also switch outfits with a hidden tag at the end of its reply. No extra requests.')}
+                        ${switchHtml('id="pw_notify"', 'Notify me about changes', 'circle-info')}
+                        <div class="pw-grid">
+                            <div class="pw-field">
+                                <label for="pw_scene_every">Scene check</label>
+                                <select id="pw_scene_every" class="text_pole">
+                                    <option value="1">After every reply</option>
+                                    <option value="2">Every 2 replies</option>
+                                    <option value="3">Every 3 replies</option>
+                                    <option value="5">Every 5 replies</option>
+                                </select>
+                            </div>
+                            <div class="pw-field">
+                                <label for="pw_profile">Model for wardrobe tasks</label>
+                                <select id="pw_profile" class="text_pole"></select>
+                            </div>
+                        </div>
+                        <div class="pw-hint">The stylist and scene check send their own small requests. Pick a cheaper connection profile to save on cost.</div>
+                        <div class="pw-subhead">Wardrobe</div>
                         <div class="pw-field">
                             <label for="pw_scope">Wardrobe belongs to</label>
                             <select id="pw_scope" class="text_pole">${scopeOptions}</select>
@@ -232,6 +271,19 @@ function bindHandlers() {
     $id('pw_enabled').addEventListener('change', e => { s().enabled = e.target.checked; changed(); syncUI(); });
     $id('pw_model_changes').addEventListener('change', e => { s().modelChanges = e.target.checked; changed(); syncUI(); });
     $id('pw_notify').addEventListener('change', e => { s().notify = e.target.checked; save(); });
+    $id('pw_auto_style').addEventListener('change', e => { s().autoStyle = e.target.checked; save(); });
+    $id('pw_scene_check').addEventListener('change', e => { s().sceneCheck = e.target.checked; save(); syncUI(); });
+    $id('pw_scene_every').addEventListener('change', e => { s().sceneEvery = Number(e.target.value) || 1; save(); });
+    $id('pw_profile').addEventListener('change', e => { s().profileId = e.target.value; save(); });
+
+    $id('pw_style_fill').addEventListener('click', () => styleWardrobe('fill'));
+    $id('pw_style_all').addEventListener('click', () => {
+        const w = getWardrobe();
+        const hasText = w.outfits.some(o => o.text.trim()) || w.underwear.trim() || w.extras.some(x => x.text.trim());
+        if (hasText && !confirm('Rewrite every outfit and detail from the persona description? You can undo this afterwards.')) return;
+        styleWardrobe('all');
+    });
+    $id('pw_style_undo').addEventListener('click', () => undoStyling());
     $id('pw_scope').addEventListener('change', e => { s().scope = e.target.value; openCards.clear(); changed(); syncUI({ force: true }); });
     $id('pw_position').addEventListener('change', e => { s().position = Number(e.target.value); changed(); syncDepthState(); });
     $id('pw_depth').addEventListener('input', e => { s().depth = Math.max(0, parseInt(e.target.value, 10) || 0); changed(); });
@@ -504,6 +556,38 @@ function renderHeadChip() {
     chip.classList.toggle('is-off', !s.enabled);
 }
 
+function renderProfiles() {
+    const sel = $id('pw_profile');
+    const s = getSettings();
+    const profiles = listProfiles();
+    const missing = s.profileId && !profiles.some(p => p.id === s.profileId);
+    sel.innerHTML = '<option value="">Same as the chat</option>'
+        + profiles.map(p => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('')
+        + (missing ? `<option value="${esc(s.profileId)}">Missing profile (uses the chat's)</option>` : '');
+    sel.value = s.profileId || '';
+}
+
+function renderStylist() {
+    const name = ctx()?.name1 || 'your persona';
+    const hasDesc = !!personaDescription();
+    const hint = $id('pw_stylist_hint');
+    let text;
+    let warn = false;
+    if (status.styling) text = `Choosing clothes for ${name}…`;
+    else if (!hasDesc) { text = `${name}'s persona has no description yet. Add one and the stylist can dress them.`; warn = true; }
+    else if (descriptionChangedSinceStyling()) { text = `${name}'s description changed since the last styling. Restyle to catch up.`; warn = true; }
+    else text = `Dresses ${name} to match their persona description.`;
+    hint.textContent = text;
+    hint.classList.toggle('pw-hint-accent', warn);
+
+    const busy = status.styling;
+    $id('pw_stylist').classList.toggle('is-busy', busy);
+    $id('pw_style_fill').disabled = busy || !hasDesc;
+    $id('pw_style_all').disabled = busy || !hasDesc;
+    $id('pw_style_fill').querySelector('.pw-btn-icon').innerHTML = busy ? icon('spinner', 'fa-spin') : icon('wand-magic-sparkles');
+    $id('pw_style_undo').hidden = busy || !canUndo();
+}
+
 function syncDepthState() {
     $id('pw_depth').disabled = Number(getSettings().position) !== POSITION.IN_CHAT;
 }
@@ -526,7 +610,12 @@ export function syncUI({ force = false } = {}) {
     $id('pw_enabled').checked = !!s.enabled;
     $id('pw_model_changes').checked = !!s.modelChanges;
     $id('pw_notify').checked = !!s.notify;
-    $id('pw_notify').closest('.pw-switch-row').classList.toggle('is-disabled', !s.modelChanges);
+    $id('pw_auto_style').checked = !!s.autoStyle;
+    $id('pw_scene_check').checked = !!s.sceneCheck;
+    $id('pw_scene_every').value = String(s.sceneEvery || 1);
+    $id('pw_scene_every').disabled = !s.sceneCheck;
+    renderProfiles();
+    renderStylist();
     $id('pw_scope').value = s.scope;
     $id('pw_scope_hint').textContent = SCOPE_HINTS[s.scope] || '';
     $id('pw_position').value = String(s.position);

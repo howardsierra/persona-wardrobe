@@ -75,6 +75,10 @@ export const defaultSettings = {
     scope: 'chat',
     modelChanges: true,      // let the model switch outfits via a hidden tag
     notify: true,            // toast when the model changes the outfit
+    autoStyle: true,         // dress brand-new, empty wardrobes from the persona description
+    sceneCheck: true,        // after replies, ask the model which outfit fits the scene
+    sceneEvery: 1,           // ...every N character replies
+    profileId: '',           // connection profile for stylist / scene check ('' = the chat's connection)
     position: POSITION.IN_CHAT,
     depth: 0,
     role: ROLE.SYSTEM,

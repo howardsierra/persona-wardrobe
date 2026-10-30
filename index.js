@@ -7,6 +7,7 @@ import { setupUI, setupMenuItem, syncUI } from './ui.js';
 import { updatePromptInjection } from './prompts.js';
 import { hasTag, applyTag, stripMessage, rerenderMessage } from './tags.js';
 import { registerCommands } from './commands.js';
+import { setStylistListener, maybeAutoStyle, sceneCheck, resetSceneCounter } from './stylist.js';
 
 // Load our stylesheet if the host didn't already (it normally does, from the manifest).
 function ensureStylesheet() {
@@ -29,6 +30,18 @@ const strippedIds = new Set();
 function refresh(opts) {
     syncUI(opts);
     updatePromptInjection();
+}
+
+// Give the host a moment to finish loading the chat / persona before styling.
+let autoStyleTimer = null;
+function scheduleAutoStyle() {
+    clearTimeout(autoStyleTimer);
+    autoStyleTimer = setTimeout(() => { try { maybeAutoStyle(); } catch (e) { console.error(LOG, 'auto-style error', e); } }, 1200);
+}
+
+function onChatOrPersona() {
+    refresh();
+    scheduleAutoStyle();
 }
 
 function messageIndex(c, id) {
@@ -80,7 +93,7 @@ function watchKey() {
         const key = getWardrobeKey();
         if (key !== lastKey) {
             lastKey = key;
-            refresh();
+            onChatOrPersona();
         }
     } catch { /* ignore */ }
 }
@@ -98,11 +111,12 @@ jQuery(async () => {
         setupUI();
         setupMenuItem();
         registerCommands(syncUI);
+        setStylistListener(syncUI);
         updatePromptInjection();
         lastKey = getWardrobeKey();
 
-        on(c, 'CHAT_CHANGED', refresh);
-        on(c, 'PERSONA_CHANGED', refresh);
+        on(c, 'CHAT_CHANGED', onChatOrPersona);
+        on(c, 'PERSONA_CHANGED', onChatOrPersona);
         on(c, 'SETTINGS_UPDATED', watchKey);
         // Make sure the injection is current before every prompt is built.
         on(c, 'GENERATION_STARTED', () => { watchKey(); updatePromptInjection(); });
@@ -114,9 +128,13 @@ jQuery(async () => {
             const stripped = handleIncoming(idx) || strippedIds.has(idx);
             strippedIds.delete(idx);
             if (stripped) rerenderMessage(idx);
+            // The story model already reported a change for this reply; otherwise check the scene.
+            if (stripped) resetSceneCounter();
+            else sceneCheck();
         });
 
         setInterval(watchKey, 1500);
+        scheduleAutoStyle();
         console.log(LOG, 'loaded');
     } catch (e) {
         console.error(LOG, 'init error', e);

@@ -10,6 +10,13 @@ It works in [SillyTavern](https://github.com/SillyTavern/SillyTavern) and [Rever
 
 ## Features
 
+- **Stylist.** Reads your persona's description and dresses them to match: every outfit, underwear, hair, nails and jewelry, all in their style and fitted to the story's setting.
+  - New, empty wardrobes are styled **automatically** the first time you open a chat.
+  - Use **Fill empty slots** to fill in only the blanks, or **Restyle everything** after you've changed the persona. Both can be undone, and the panel tells you when the description has changed since the last styling.
+  - Anything the description already says ("always wears silver rings", "messy black hair") is used exactly.
+- **Automatic outfit changes.** After character replies, a short scene check picks the outfit that fits what's happening: pyjamas when you head to bed, workout clothes at the gym, back to work clothes the next morning. It only changes when the story clearly calls for it.
+  - It sends one small extra request per reply (or every 2, 3 or 5 replies). In Settings you can send these requests to a cheaper connection profile, or turn the check off.
+
 - **Per-chat wardrobes (default).** Each chat has its own wardrobe, saved inside the chat file, so the same persona can dress
   completely differently on different cards or in different storylines. Branching a chat copies its wardrobe.
   A brand-new chat starts from the last wardrobe you used with that persona + character (or your persona's wardrobe), so you don't retype everything.
@@ -27,6 +34,7 @@ It works in [SillyTavern](https://github.com/SillyTavern/SillyTavern) and [Rever
 - **Slash commands**
   - `/outfit <name>` (alias `/wardrobe`): change outfit (`/outfit none` for undressed). With no name, it returns what you're wearing.
   - `/underwear on|off|toggle`
+  - `/stylist [fill|all|undo]`: run the stylist (fill empty slots by default), restyle everything, or undo the last styling.
   - `/hair`, `/nails` and `/jewelry` followed by a description: set them (`none` clears). With no text, they return the current description.
 - **Macros** for use in cards, Author's Note, Quick Replies, etc.: `{{outfit}}`, `{{outfit_name}}`, `{{outfit_text}}`, `{{underwear}}`, `{{hair}}`, `{{nails}}`, `{{jewelry}}`.
 

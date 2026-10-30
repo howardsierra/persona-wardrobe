@@ -3,6 +3,7 @@
 import { LOG, NONE_ID, DEFAULT_EXTRAS } from './config.js';
 import { ctx, getWardrobe, findOutfit, save } from './state.js';
 import { describeClothing, updatePromptInjection } from './prompts.js';
+import { styleWardrobe, undoStyling } from './stylist.js';
 
 let onChange = () => {};
 
@@ -66,6 +67,14 @@ function extraCommand(id) {
     };
 }
 
+// /stylist [fill|all|undo]  - dress the persona from their description.
+async function stylistCommand(_args, value) {
+    const v = String(value ?? '').trim().toLowerCase();
+    if (v === 'undo') return undoStyling() ? 'undone' : '';
+    const ok = await styleWardrobe(v === 'all' || v === 'restyle' ? 'all' : 'fill');
+    return ok ? describeClothing() : '';
+}
+
 function registerSlash(c) {
     const outfitHelp = 'Switch your persona\'s current outfit by name (or "none"). With no name, returns what you\'re wearing.';
     const extraHelp = (label) => `Set your persona's ${label.toLowerCase()} (or "none" to clear). With no text, returns the current description.`;
@@ -96,6 +105,13 @@ function registerSlash(c) {
             unnamedArgumentList: arg('on | off | toggle', ['on', 'off', 'toggle']),
             helpString: uwHelp,
         }));
+        SlashCommandParser.addCommandObject(SlashCommand.fromProps({
+            name: 'stylist',
+            callback: stylistCommand,
+            returns: 'description of the current clothing',
+            unnamedArgumentList: arg('fill | all | undo', ['fill', 'all', 'undo']),
+            helpString: 'Dress your persona from their description. "fill" (default) fills empty slots, "all" restyles everything, "undo" reverts the last styling.',
+        }));
         for (const e of DEFAULT_EXTRAS) {
             SlashCommandParser.addCommandObject(SlashCommand.fromProps({
                 name: e.id,
@@ -106,6 +122,7 @@ function registerSlash(c) {
             }));
         }
     } else if (typeof c.registerSlashCommand === 'function') {
+        c.registerSlashCommand('stylist', stylistCommand, [], 'Dress your persona from their description: fill, all or undo.', true, true);
         for (const e of DEFAULT_EXTRAS) c.registerSlashCommand(e.id, extraCommand(e.id), [], extraHelp(e.label), true, true);
         c.registerSlashCommand('outfit', outfitCommand, ['wardrobe'], outfitHelp, true, true);
         c.registerSlashCommand('underwear', underwearCommand, [], uwHelp, true, true);
