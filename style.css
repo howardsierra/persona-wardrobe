@@ -1433,6 +1433,25 @@
     margin: 0;
 }
 
+.persona-wardrobe .pw-m-colour {
+    margin-top: 12px;
+}
+
+.persona-wardrobe .pw-m-filters {
+    grid-template-columns: repeat(4, 1fr);
+    margin-top: 8px;
+}
+
+.persona-wardrobe .pw-m-section-select {
+    width: 100%;
+    margin: 0;
+}
+
+.persona-wardrobe .pw-m-count {
+    margin-top: 8px;
+    text-align: right;
+}
+
 .persona-wardrobe .pw-m-sections {
     display: flex;
     flex-wrap: wrap;
@@ -1605,6 +1624,10 @@
 
 @media (max-width: 480px) {
     .persona-wardrobe .pw-b-filters {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .persona-wardrobe .pw-m-filters {
         grid-template-columns: 1fr 1fr;
     }
 

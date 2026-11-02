@@ -8,8 +8,8 @@ import {
     SLOTS, MODES, OPTIONAL_SLOTS, CATALOG_CREDIT, emptyPieces, normalizePieces, composeText, hasAnyPiece,
     loadCatalog, catalogLoaded, filterPieces, randomPiece, guessGender,
 } from './catalog.js';
-import { status, requestLooks, pendingLooks, planOutfits, wearLook, dismissLooks, addOutfitFromPieces, lookText, personaDescription, chooseMakeup } from './stylist.js';
-import { MAKEUP_CREDIT, loadMakeup, makeupLoaded, filterLooks, allLooks, randomLook, lookText as makeupText } from './makeup.js';
+import { status, requestLooks, pendingLooks, planOutfits, wearLook, dismissLooks, addOutfitFromPieces, lookText, personaDescription, chooseLook } from './stylist.js';
+import { makeupLib, hairLib, sentence, hairColourOf, hairText } from './library.js';
 
 const BUILDER_ID = 'persona_wardrobe_builder';
 const LOOKS_ID = 'persona_wardrobe_looks';
@@ -556,6 +556,7 @@ function renderLooks() {
                 <b>${esc(look.name)}</b>
             </div>
             <div class="pw-look-text">${esc(lookText(look))}</div>
+            ${look.hair ? `<div class="pw-look-why">${icon('scissors')}<span>${esc(look.hair)}</span></div>` : ''}
             ${look.makeup ? `<div class="pw-look-why">${icon('paintbrush')}<span>${esc(look.makeup)}</span></div>` : ''}
             ${look.why ? `<div class="pw-look-why">${icon('lightbulb')}<span>${esc(look.why)}</span></div>` : ''}
             <div class="pw-card-actions">
@@ -568,168 +569,270 @@ function renderLooks() {
 // Called whenever wardrobe state changes, so open popups stay current.
 export function refreshPopups() {
     renderLooks();
-    renderMakeup();
+    renderPicker();
 }
 
-// ---------- makeup picker ----------
+// ---------- makeup and hair pickers ----------
 
-/** @type {null | {frame: any, section: string, query: string, pickedId: string, note: string, busy: boolean}} */
-let mk = null;
+const PICKER_ID = 'persona_wardrobe_picker';
 
-function makeupDetail(create = false) {
+const nice = t => String(t).replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+
+const PICKERS = {
+    makeup: {
+        lib: makeupLib,
+        detail: { id: 'makeup', label: 'Makeup', icon: 'paintbrush' },
+        title: 'Makeup looks',
+        icon: 'paintbrush',
+        search: 'Search looks, e.g. smoky, gold, natural',
+        current: 'Current makeup',
+        match: 'Match my outfit',
+        matchTitle: 'Let the stylist pick the look that suits your outfit and the scene',
+        clear: 'No makeup',
+        filters: () => [],
+        text: (look) => sentence(look.text),
+        used: (name, look) => `${name} is wearing ${look.title} makeup.`,
+        cleared: (name) => `${name} is wearing no makeup now.`,
+    },
+    hair: {
+        lib: hairLib,
+        detail: { id: 'hair', label: 'Hair', icon: 'scissors' },
+        title: 'Hairstyles',
+        icon: 'scissors',
+        search: 'Search styles, e.g. braids, bob, curls, locs',
+        current: 'Current hair',
+        match: 'Match my look',
+        matchTitle: 'Let the stylist pick a style that suits your hair, outfit and the scene',
+        clear: null,
+        colour: true,
+        filters: () => {
+            const vibes = [...new Set(hairLib.all().flatMap(l => l.vibes || []))].sort();
+            return [
+                { key: 'length', label: 'Any length', options: [['short', 'Short'], ['mid', 'Mid-length'], ['long', 'Long']] },
+                { key: 'texture', label: 'Any texture', options: [['straight', 'Straight'], ['wavy', 'Wavy'], ['curly', 'Curly'], ['coily', 'Coily']] },
+                { key: 'vibes', label: 'Any vibe', options: vibes.map(v => [v, nice(v)]) },
+                { key: 'gender', label: 'Any cut', options: [['f', "Women's"], ['m', "Men's"]] },
+            ];
+        },
+        defaults: () => ({ gender: genderPref() }),
+        text: (look, st) => hairText(st.colour, look),
+        used: (name, look) => `${name}'s hair is now ${look.title}.`,
+    },
+};
+
+/** @type {null | {kind: string, cfg: object, frame: any, section: string, query: string, attrs: object, colour: string, pickedId: string, note: string, busy: boolean}} */
+let pk = null;
+
+function pickerDetail(cfg, create = false) {
     const w = getWardrobe();
-    let e = w.extras.find(x => x.id === 'makeup');
+    let e = w.extras.find(x => x.id === cfg.detail.id);
     if (!e && create) {
-        e = { id: 'makeup', label: 'Makeup', icon: 'paintbrush', text: '' };
+        e = { ...cfg.detail, text: '' };
         w.extras.push(e);
     }
     return e;
 }
 
-export function openMakeupPicker() {
-    mk = { section: '', query: '', pickedId: '', note: '', busy: false };
-    const state = mk;
-    mk.frame = openFrame(MAKEUP_ID, {
-        title: 'Makeup looks', sub: `For ${userName()}`, iconName: 'paintbrush', wide: true,
-        onClose: () => { if (mk === state) mk = null; },
+/** Open the makeup ('makeup') or hairstyle ('hair') picker. */
+export function openPicker(kind) {
+    const cfg = PICKERS[kind];
+    if (!cfg) return;
+    const w = getWardrobe();
+    pk = {
+        kind, cfg, section: '', query: '', attrs: cfg.defaults?.() || {}, pickedId: '', note: '', busy: false,
+        colour: w.hairColor ?? hairColourOf(pickerDetail(cfg)?.text),
+    };
+    const state = pk;
+    pk.frame = openFrame(PICKER_ID, {
+        title: cfg.title, sub: `For ${userName()}`, iconName: cfg.icon, wide: true,
+        onClose: () => { if (pk === state) pk = null; },
     });
-    const { body, foot } = mk.frame;
+    const { body, foot } = pk.frame;
     body.innerHTML = `
         <div class="pw-b-preview pw-m-current">
-            <div class="pw-now-kicker">Current makeup</div>
+            <div class="pw-now-kicker">${esc(cfg.current)}</div>
             <div data-m-current></div>
         </div>
-        <label class="pw-b-search pw-m-search">${icon('magnifying-glass')}<input type="search" class="text_pole" data-m-query placeholder="Search looks, e.g. smoky, gold, natural" aria-label="Search makeup looks" /></label>
-        <div class="pw-m-sections" data-m-sections role="tablist" aria-label="Makeup styles"></div>
+        ${cfg.colour ? `
+        <div class="pw-field pw-m-colour">
+            <label for="pw_m_colour">Hair colour</label>
+            <input id="pw_m_colour" type="text" class="text_pole" data-m-colour maxlength="60" placeholder="e.g. jet black, copper, honey blonde with dark roots" />
+            <div class="pw-hint">Kept when you switch styles. Leave empty to describe the style only.</div>
+        </div>` : ''}
+        <label class="pw-b-search pw-m-search">${icon('magnifying-glass')}<input type="search" class="text_pole" data-m-query placeholder="${esc(cfg.search)}" aria-label="Search" /></label>
+        <div class="pw-b-filters pw-m-filters" data-m-filters></div>
+        <div class="pw-m-sections" data-m-sections role="tablist" aria-label="Styles"></div>
         <div class="pw-m-note" data-m-note hidden></div>
+        <div class="pw-m-count pw-hint" data-m-count></div>
         <div class="pw-m-list" data-m-list></div>
-        <a class="pw-credit" href="${MAKEUP_CREDIT.url}" target="_blank" rel="noopener">${esc(MAKEUP_CREDIT.text)} ${icon('arrow-up-right-from-square')}</a>`;
+        <a class="pw-credit" href="${cfg.lib.credit.url}" target="_blank" rel="noopener">${esc(cfg.lib.credit.text)} ${icon('arrow-up-right-from-square')}</a>`;
     foot.innerHTML = `
-        <button type="button" class="pw-btn pw-btn-ghost" data-m-ai title="Let the stylist pick the look that suits your outfit and the scene"><span class="pw-btn-icon">${icon('wand-magic-sparkles')}</span><span>Match my outfit</span></button>
+        <button type="button" class="pw-btn pw-btn-ghost" data-m-ai title="${esc(cfg.matchTitle)}"><span class="pw-btn-icon">${icon('wand-magic-sparkles')}</span><span>${esc(cfg.match)}</span></button>
         <button type="button" class="pw-icon-btn" data-m-random title="Surprise me">${icon('shuffle')}</button>
         <span class="pw-spacer"></span>
-        <button type="button" class="pw-btn pw-btn-ghost" data-m-clear title="Remove the makeup description">${icon('eraser')}<span>No makeup</span></button>`;
+        ${cfg.clear ? `<button type="button" class="pw-btn pw-btn-ghost" data-m-clear>${icon('eraser')}<span>${esc(cfg.clear)}</span></button>` : ''}`;
 
-    body.querySelector('[data-m-query]').addEventListener('input', e => { mk.query = e.target.value; renderMakeup(); });
+    if (cfg.colour) {
+        const input = body.querySelector('[data-m-colour]');
+        input.value = pk.colour;
+        input.addEventListener('input', e => { pk.colour = e.target.value.trim(); renderPicker(); });
+    }
+    body.querySelector('[data-m-query]').addEventListener('input', e => { pk.query = e.target.value; renderPicker(); });
+    body.addEventListener('change', e => {
+        const f = e.target.closest('[data-m-filter]');
+        if (f) { pk.attrs[f.dataset.mFilter] = f.value; renderPicker(); }
+        if (e.target.matches('[data-m-section-select]')) { pk.section = e.target.value; renderPicker(); }
+    });
     body.addEventListener('click', e => {
         const sec = e.target.closest('[data-m-section]');
-        if (sec) {
-            mk.section = sec.dataset.mSection;
-            renderMakeup();
-            return;
-        }
+        if (sec) { pk.section = sec.dataset.mSection; renderPicker(); return; }
         const use = e.target.closest('[data-m-use]');
-        if (use) useMakeup(use.dataset.mUse);
+        if (use) usePick(use.dataset.mUse);
     });
     foot.querySelector('[data-m-random]').addEventListener('click', () => {
-        const look = randomLook(mk.section);
-        if (!look) return;
-        showPicked(look.id, 'Surprise pick. Tap "Use this" to wear it.');
+        const look = cfg.lib.random({ section: pk.section, query: pk.query, attrs: pk.attrs });
+        if (look) showPicked(look.id, 'Surprise pick. Tap "Use this" to wear it.');
     });
-    foot.querySelector('[data-m-ai]').addEventListener('click', matchMakeup);
-    foot.querySelector('[data-m-clear]').addEventListener('click', () => {
-        const e = makeupDetail();
+    foot.querySelector('[data-m-ai]').addEventListener('click', matchPick);
+    foot.querySelector('[data-m-clear]')?.addEventListener('click', () => {
+        const e = pickerDetail(cfg);
         if (!e) return;
         e.text = '';
         commit();
-        toast('info', `${userName()} is wearing no makeup now.`);
-        closeFrame(MAKEUP_ID);
+        toast('info', cfg.cleared(userName()));
+        closeFrame(PICKER_ID);
     });
 
-    renderMakeup();
-    if (!makeupLoaded()) {
-        body.querySelector('[data-m-list]').innerHTML = `<div class="pw-hint">${icon('spinner', 'fa-spin')} Loading looks…</div>`;
-        loadMakeup().then(() => renderMakeup()).catch(() => {
-            body.querySelector('[data-m-list]').innerHTML = '<div class="pw-hint pw-hint-accent">Couldn\'t load the makeup looks.</div>';
+    renderPicker();
+    if (!cfg.lib.loaded()) {
+        body.querySelector('[data-m-list]').innerHTML = `<div class="pw-hint">${icon('spinner', 'fa-spin')} Loading…</div>`;
+        cfg.lib.load().then(() => { renderFilters(); renderPicker(); }).catch(() => {
+            body.querySelector('[data-m-list]').innerHTML = '<div class="pw-hint pw-hint-accent">Couldn\'t load the list.</div>';
         });
+    } else {
+        renderFilters();
     }
     body.querySelector('[data-m-query]').focus({ preventScroll: true });
 }
 
-function renderMakeup() {
-    if (!mk) return;
-    const { body, foot } = mk.frame;
-    const current = makeupDetail()?.text.trim() || '';
+function renderFilters() {
+    if (!pk) return;
+    const box = pk.frame.body.querySelector('[data-m-filters]');
+    const filters = pk.cfg.filters();
+    box.hidden = !filters.length;
+    box.innerHTML = filters.map(f => `
+        <select class="text_pole" data-m-filter="${f.key}" aria-label="${esc(f.label)}">
+            <option value="">${esc(f.label)}</option>
+            ${f.options.map(([v, label]) => `<option value="${esc(v)}">${esc(label)}</option>`).join('')}
+        </select>`).join('');
+    for (const f of filters) box.querySelector(`[data-m-filter="${f.key}"]`).value = pk.attrs[f.key] || '';
+}
+
+function renderSections() {
+    const box = pk.frame.body.querySelector('[data-m-sections]');
+    const sections = pk.cfg.lib.sections();
+    if (sections.length <= 8) {
+        box.innerHTML = [{ id: '', name: 'All' }, ...sections].map(sec =>
+            `<button type="button" class="pw-m-chip${pk.section === sec.id ? ' is-active' : ''}" data-m-section="${esc(sec.id)}" role="tab" aria-selected="${pk.section === sec.id}"${sec.description ? ` title="${esc(sec.description)}"` : ''}>${esc(sec.name)}</button>`).join('');
+        return;
+    }
+    // Many sections: a grouped dropdown reads better than a wall of chips.
+    if (!box.querySelector('[data-m-section-select]')) {
+        const groups = [...new Set(sections.map(sec => sec.group))];
+        box.innerHTML = `<select class="text_pole pw-m-section-select" data-m-section-select aria-label="Style">
+            <option value="">All styles</option>
+            ${groups.map(g => `<optgroup label="${esc(g)}">${sections.filter(sec => sec.group === g).map(sec => `<option value="${esc(sec.id)}">${esc(sec.name)}</option>`).join('')}</optgroup>`).join('')}
+        </select>`;
+    }
+    box.querySelector('[data-m-section-select]').value = pk.section;
+}
+
+function renderPicker() {
+    if (!pk) return;
+    const { body, foot } = pk.frame;
+    const cfg = pk.cfg;
+    const current = pickerDetail(cfg)?.text.trim() || '';
     const cur = body.querySelector('[data-m-current]');
     cur.textContent = current || 'None set';
     cur.classList.toggle('pw-muted', !current);
 
-    foot.querySelector('[data-m-ai]').disabled = mk.busy || !makeupLoaded();
-    foot.querySelector('[data-m-ai] .pw-btn-icon').innerHTML = mk.busy ? icon('spinner', 'fa-spin') : icon('wand-magic-sparkles');
-    foot.querySelector('[data-m-clear]').disabled = !current;
+    foot.querySelector('[data-m-ai]').disabled = pk.busy || !cfg.lib.loaded();
+    foot.querySelector('[data-m-ai] .pw-btn-icon').innerHTML = pk.busy ? icon('spinner', 'fa-spin') : icon('wand-magic-sparkles');
+    const clear = foot.querySelector('[data-m-clear]');
+    if (clear) clear.disabled = !current;
 
     // A pick's reason shows on its card; this banner is for progress and errors.
-    const banner = mk.pickedId && !mk.busy ? '' : mk.note;
+    const banner = pk.pickedId && !pk.busy ? '' : pk.note;
     const note = body.querySelector('[data-m-note]');
     note.hidden = !banner;
-    note.innerHTML = banner ? `${icon(mk.busy ? 'spinner' : 'lightbulb', mk.busy ? 'fa-spin' : '')}<span>${esc(banner)}</span>` : '';
+    note.innerHTML = banner ? `${icon(pk.busy ? 'spinner' : 'lightbulb', pk.busy ? 'fa-spin' : '')}<span>${esc(banner)}</span>` : '';
 
-    if (!makeupLoaded()) return;
-    loadMakeup().then(d => {
-        if (!mk) return;
-        body.querySelector('[data-m-sections]').innerHTML = [{ id: '', name: 'All' }, ...d.sections].map(sec =>
-            `<button type="button" class="pw-m-chip${mk.section === sec.id ? ' is-active' : ''}" data-m-section="${esc(sec.id)}" role="tab" aria-selected="${mk.section === sec.id}"${sec.description ? ` title="${esc(sec.description)}"` : ''}>${esc(sec.name)}</button>`).join('');
-        const names = Object.fromEntries(d.sections.map(sec => [sec.id, sec.name]));
-        const looks = filterLooks({ section: mk.section, query: mk.query });
-        // Keep a picked look visible even when the filters would hide it.
-        const picked = mk.pickedId && !looks.some(l => l.id === mk.pickedId) ? allLooks().find(l => l.id === mk.pickedId) : null;
-        const list = picked ? [picked, ...looks] : looks;
-        body.querySelector('[data-m-list]').innerHTML = list.length ? list.map(l => {
-            const text = makeupText(l);
-            const wearing = current === text;
-            return `
-            <div class="pw-m-look${wearing ? ' is-current' : ''}${mk.pickedId === l.id ? ' is-picked' : ''}" data-m-id="${esc(l.id)}">
-                <div class="pw-m-look-head"><b>${esc(l.title)}</b><span class="pw-m-tag">${esc(names[l.section] || '')}</span></div>
-                <div class="pw-m-look-text">${esc(text)}</div>
-                ${mk.pickedId === l.id && mk.note ? `<div class="pw-look-why">${icon('lightbulb')}<span>${esc(mk.note)}</span></div>` : ''}
-                <button type="button" class="pw-btn${mk.pickedId === l.id ? ' is-primary' : ' pw-btn-ghost'}" data-m-use="${esc(l.id)}" ${wearing ? 'disabled' : ''}>
-                    ${icon(wearing ? 'check' : 'paintbrush')}<span>${wearing ? 'Wearing' : 'Use this'}</span>
-                </button>
-            </div>`;
-        }).join('') : '<div class="pw-hint">No looks match. Try another word or style.</div>';
-    });
+    if (!cfg.lib.loaded()) return;
+    renderSections();
+    const names = Object.fromEntries(cfg.lib.sections().map(sec => [sec.id, sec.name]));
+    const looks = cfg.lib.filter({ section: pk.section, query: pk.query, attrs: pk.attrs });
+    // Keep a picked look visible even when the filters would hide it.
+    const picked = pk.pickedId && !looks.some(l => l.id === pk.pickedId) ? cfg.lib.all().find(l => l.id === pk.pickedId) : null;
+    const list = picked ? [picked, ...looks] : looks;
+    body.querySelector('[data-m-count]').textContent = `${looks.length} of ${cfg.lib.all().length}`;
+    body.querySelector('[data-m-list]').innerHTML = list.length ? list.map(l => {
+        const text = cfg.text(l, pk);
+        const wearing = current === text;
+        const isPicked = pk.pickedId === l.id;
+        return `
+        <div class="pw-m-look${wearing ? ' is-current' : ''}${isPicked ? ' is-picked' : ''}" data-m-id="${esc(l.id)}">
+            <div class="pw-m-look-head"><b>${esc(l.title)}</b><span class="pw-m-tag">${esc(names[l.section] || '')}</span></div>
+            <div class="pw-m-look-text">${esc(text)}</div>
+            ${isPicked && pk.note ? `<div class="pw-look-why">${icon('lightbulb')}<span>${esc(pk.note)}</span></div>` : ''}
+            <button type="button" class="pw-btn${isPicked ? ' is-primary' : ' pw-btn-ghost'}" data-m-use="${esc(l.id)}" ${wearing ? 'disabled' : ''}>
+                ${icon(wearing ? 'check' : cfg.icon)}<span>${wearing ? 'Wearing' : 'Use this'}</span>
+            </button>
+        </div>`;
+    }).join('') : '<div class="pw-hint">Nothing matches. Try another word or loosen the filters.</div>';
 }
 
 function showPicked(id, note) {
-    mk.pickedId = id;
-    mk.note = note;
-    renderMakeup();
+    pk.pickedId = id;
+    pk.note = note;
+    renderPicker();
     // Wait for the list to render, then bring the pick into view.
-    setTimeout(() => mk?.frame.body.querySelector(`.pw-m-look[data-m-id="${CSS.escape(id)}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 50);
+    setTimeout(() => pk?.frame.body.querySelector(`.pw-m-look[data-m-id="${CSS.escape(id)}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 50);
 }
 
-async function matchMakeup() {
-    if (!mk || mk.busy) return;
-    const state = mk;
+async function matchPick() {
+    if (!pk || pk.busy) return;
+    const state = pk;
     state.busy = true;
     state.pickedId = '';
-    state.note = 'The stylist is choosing a look…';
-    renderMakeup();
+    state.note = 'The stylist is choosing…';
+    renderPicker();
     try {
-        await loadMakeup();
+        await state.cfg.lib.load();
         // Respect the current filters when they still leave a real choice.
-        const filtered = filterLooks({ section: state.section, query: state.query });
-        const pick = await chooseMakeup(filtered.length >= 3 ? filtered : allLooks());
-        if (mk !== state) return;
-        const look = allLooks().find(l => l.id === pick.id);
+        let pool = state.cfg.lib.filter({ section: state.section, query: state.query, attrs: state.attrs });
+        if (pool.length < 3) pool = state.cfg.lib.filter({ attrs: state.cfg.defaults?.() || {} });
+        if (pool.length < 3) pool = state.cfg.lib.all();
+        const pick = await chooseLook(state.kind, pool);
+        if (pk !== state) return;
         state.busy = false;
-        showPicked(pick.id, `Stylist's pick${pick.why ? `: ${pick.why}` : ` for ${userName()}.`}`);
+        showPicked(pick.id, `Stylist's pick${pick.why ? `: ${pick.why}` : '.'}`);
     } catch (e) {
-        console.error(LOG, 'makeup match failed', e);
-        if (mk === state) {
+        console.error(LOG, 'stylist pick failed', e);
+        if (pk === state) {
             state.busy = false;
-            state.pickedId = '';
             state.note = `The stylist couldn't choose: ${e?.message || e}`;
-            renderMakeup();
+            renderPicker();
         }
     }
 }
 
-function useMakeup(id) {
-    const look = allLooks().find(l => l.id === id);
+function usePick(id) {
+    const cfg = pk.cfg;
+    const look = cfg.lib.all().find(l => l.id === id);
     if (!look) return;
-    makeupDetail(true).text = makeupText(look);
+    pickerDetail(cfg, true).text = cfg.text(look, pk);
+    if (cfg.colour) getWardrobe().hairColor = pk.colour;
     commit();
-    toast('success', `${userName()} is wearing ${look.title} makeup.`);
-    closeFrame(MAKEUP_ID);
+    toast('success', cfg.used(userName(), look));
+    closeFrame(PICKER_ID);
 }

@@ -6,7 +6,7 @@ import { LOG, NONE_ID } from './config.js';
 import { ctx, getSettings, getWardrobe, getWardrobeKey, uniqueId, save } from './state.js';
 import { updatePromptInjection } from './prompts.js';
 import { getSidecar, sidecarChat } from './sidecar.js';
-import { loadMakeup, relevantLooks } from './makeup.js';
+import { makeupLib, hairLib, rankByContext } from './library.js';
 import { SLOTS, loadCatalog, relevantSample, normalizePieces, hasAnyPiece, composeText, guessGender } from './catalog.js';
 
 const MAX_TEXT = 600;
@@ -434,9 +434,17 @@ export async function requestLooks({ occasion, count = 3, fixed = null, includeS
     let makeupIdeas = [];
     if (makeup) {
         try {
-            await loadMakeup();
-            makeupIdeas = relevantLooks(`${desc} ${occasion} ${makeup.text}`, 6).map(l => `- ${l.title}: ${truncate(l.text, 160)}`);
+            await makeupLib.load();
+            makeupIdeas = makeupLib.relevant(`${desc} ${occasion} ${makeup.text}`, 6).map(l => `- ${l.title}: ${truncate(l.text, 160)}`);
         } catch { /* optional, like the catalogue */ }
+    }
+    const hair = w.extras.find(e => e.id === 'hair');
+    let hairIdeas = [];
+    if (hair) {
+        try {
+            await hairLib.load();
+            hairIdeas = hairLib.relevant(`${desc} ${occasion} ${hair.text}`, 6, { attrs: { gender } }).map(l => `- ${l.title}: ${truncate(l.text, 140)}`);
+        } catch { /* optional */ }
     }
 
     const lines = [
@@ -464,14 +472,16 @@ export async function requestLooks({ occasion, count = 3, fixed = null, includeS
         '',
         'Rules:',
         '- Each outfit is either separates (top + bottom) or a dress / one-piece. Shoes are expected. Outerwear is optional; 0-3 accessories.',
-        `- Fit the occasion, venue, likely weather and ${name}'s personality, body and style. Clothes go in the outfit fields; hair belongs elsewhere.`,
+        `- Fit the occasion, venue, likely weather and ${name}'s personality, body and style. Clothes go in the outfit fields.`,
         ...(makeup ? [`- Also suggest makeup that suits the outfit and occasion in "makeup" (one short sentence, in ${name}'s style; their usual makeup: ${truncate(makeup.text || 'not set', 160)}).`] : []),
         ...(makeupIdeas.length ? ['- Makeup looks you can borrow from or adapt:', ...makeupIdeas.map(l => `  ${l}`)] : []),
+        ...(hair ? [`- Also suggest a hairstyle for the occasion in "hair" (one short sentence). Keep ${name}'s hair colour, and only choose styles their hair could realistically be done in (their hair now: ${truncate(hair.text || 'not set', 160)}).`] : []),
+        ...(hairIdeas.length ? ['- Hairstyles you can borrow from or adapt:', ...hairIdeas.map(l => `  ${l}`)] : []),
         count > 1 ? '- Make the outfits clearly different from each other.' : '- Make it look put together.',
         '- Give each a short name (2-4 words) and one sentence on why it suits the occasion.',
         '',
         'Reply with only this JSON:',
-        JSON.stringify({ looks: [{ name: '...', mode: 'separates|dress', top: '', bottom: '', dress: '', outer: '', shoes: '', accessories: [''], ...(makeup ? { makeup: '' } : {}), why: '...' }] }),
+        JSON.stringify({ looks: [{ name: '...', mode: 'separates|dress', top: '', bottom: '', dress: '', outer: '', shoes: '', accessories: [''], ...(makeup ? { makeup: '' } : {}), ...(hair ? { hair: '' } : {}), why: '...' }] }),
     );
 
     const system = 'You are a costume designer for an interactive story. You build outfits that fit a character and an occasion. You reply with JSON only.';
@@ -489,7 +499,7 @@ export async function requestLooks({ occasion, count = 3, fixed = null, includeS
             if (fixed.mode) pieces.mode = fixed.mode === 'dress' ? 'dress' : 'separates';
         }
         if (!hasAnyPiece(pieces)) continue;
-        looks.push({ name: truncate(cleanValue(l.name) || occasion, 40), why: cleanValue(l.why), makeup: makeup ? cleanValue(l.makeup) : '', pieces });
+        looks.push({ name: truncate(cleanValue(l.name) || occasion, 40), why: cleanValue(l.why), makeup: makeup ? cleanValue(l.makeup) : '', hair: hair ? cleanValue(l.hair) : '', pieces });
     }
     if (!looks.length) throw new Error('the reply had no usable outfits');
     return looks.slice(0, Math.max(1, count));
@@ -563,6 +573,8 @@ export function wearLook(index) {
     // A look can come with makeup for the occasion.
     const makeup = w.extras.find(e => e.id === 'makeup');
     if (makeup && look.makeup) makeup.text = look.makeup;
+    const hair = w.extras.find(e => e.id === 'hair');
+    if (hair && look.hair) hair.text = look.hair;
     w.looks = null;
     commit();
     toast('success', `${userName()} is now wearing ${o.label}.`, { timeout: 3000 });
@@ -576,42 +588,58 @@ export function lookText(look) {
 
 // ---------- makeup picker ----------
 
+const CHOOSERS = {
+    makeup: { what: 'makeup look', system: 'You are a makeup artist for an interactive story. You reply with JSON only.', max: 70 },
+    hair: { what: 'hairstyle', system: 'You are a hairstylist for an interactive story. You reply with JSON only.', max: 60 },
+};
+
 /**
- * Ask the stylist which makeup look suits the persona, their current outfit and the scene.
+ * Ask the stylist which look from a list (makeup looks or hairstyles) suits the persona,
+ * their current outfit and the scene.
+ * @param {'makeup'|'hair'} kind
  * @param {{id: string, title: string, text: string}[]} looks
  * @returns {Promise<{id: string, why: string}>}
  */
-export async function chooseMakeup(looks) {
+export async function chooseLook(kind, looks) {
+    const c = CHOOSERS[kind];
     const name = userName();
     const w = getWardrobe();
+    const desc = personaDescription();
     const outfit = w.outfits.find(o => o.id === w.active);
+    const hair = w.extras.find(e => e.id === 'hair');
+    const makeup = w.extras.find(e => e.id === 'makeup');
+    const story = recentStory(3);
+    // Long lists (hair) are narrowed to the most relevant entries first.
+    const context = [desc, outfit?.text, hair?.text, makeup?.text, ...story].join(' ');
+    const pool = looks.length > c.max ? rankByContext(looks, context, c.max) : looks;
+
     const lines = [
-        `Pick the makeup look that best suits ${name} right now.`,
+        `Pick the ${c.what} that best suits ${name} right now.`,
         '',
         `${name}'s description:`,
         '"""',
-        truncate(personaDescription() || '(no description)', 2000),
+        truncate(desc || '(no description)', 2000),
         '"""',
         '',
         `Wearing now: ${outfit?.text.trim() ? truncate(outfit.text, 300) : w.active === NONE_ID ? 'nothing (undressed)' : 'not described'}`,
     ];
-    const hair = w.extras.find(e => e.id === 'hair');
     if (hair?.text.trim()) lines.push(`Hair: ${truncate(hair.text, 160)}`);
-    const story = recentStory(3);
+    if (kind === 'hair' && makeup?.text.trim()) lines.push(`Makeup: ${truncate(makeup.text, 160)}`);
     if (story.length) lines.push('', 'What is happening in the story:', ...story);
     lines.push(
         '',
-        'Makeup looks:',
-        ...looks.map(l => `- ${l.id}: ${l.title}. ${truncate(l.text, 150)}`),
+        `${kind === 'hair' ? 'Hairstyles' : 'Makeup looks'}:`,
+        ...pool.map(l => `- ${l.id}: ${l.title}. ${truncate(l.text, 150)}`),
         '',
-        `Choose the one that fits ${name}'s style, the outfit and the moment best.`,
+        kind === 'hair'
+            ? `Choose the one that fits ${name}'s style, the outfit and the moment best, and that their hair could realistically be styled into (mind its length and texture).`
+            : `Choose the one that fits ${name}'s style, the outfit and the moment best.`,
         'Reply with only this JSON:',
         '{"id":"<one of the ids above>","why":"one short sentence"}',
     );
-    const system = 'You are a makeup artist for an interactive story. You reply with JSON only.';
-    const data = parseJsonReply(await ask(system, lines.join('\n'), { responseLength: 400 }));
+    const data = parseJsonReply(await ask(c.system, lines.join('\n'), { responseLength: 400 }));
     const id = typeof data?.id === 'string' ? data.id.trim() : '';
-    const hit = looks.find(l => l.id === id) || looks.find(l => l.title.toLowerCase() === id.toLowerCase());
-    if (!hit) throw new Error('the stylist did not pick one of the looks');
+    const hit = pool.find(l => l.id === id) || pool.find(l => l.title.toLowerCase() === id.toLowerCase());
+    if (!hit) throw new Error(`the stylist did not pick one of the ${kind === 'hair' ? 'hairstyles' : 'looks'}`);
     return { id: hit.id, why: cleanValue(data?.why) };
 }

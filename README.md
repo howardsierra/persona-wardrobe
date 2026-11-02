@@ -19,7 +19,12 @@ It works in [SillyTavern](https://github.com/SillyTavern/SillyTavern) and [Rever
   - **Surprise me** fills the empty slots at random, and **Stylist pick** has the stylist finish the outfit in your persona's style.
   - Open it with **Build** on any outfit, or **Build outfit** to make a new one.
 - **Makeup picker.** **Browse looks** on the Makeup card opens 70 makeup looks in 7 styles (Everyday & Soft, Classic & Polished, Bright Night Out, Glitter & Metallic, Gothic & Dark, Fantasy & Ethereal, Pink Glam). Search them, get a surprise pick, or press **Match my outfit** and the stylist picks the look that suits what you're wearing and what's happening, and says why.
-- **Outfit ideas.** Tell the stylist the occasion ("rooftop date at sunset", "hiking in the rain") and it builds three outfits to choose from, each with makeup to match. Wear one as it is, or open it in the builder to tweak it first.
+- **Hair picker.** **Browse hairstyles** on the Hair card opens over 300 hairstyles:
+  - a **Black hairstyles** collection of 83 styles: braids and cornrows (knotless, Fulani, stitch, lemonade…), twists and locs (Senegalese, passion, faux, butterfly, microlocs…), natural styles (afros, puffs, twist-outs, Bantu knots, wash-and-gos…), pressed and sleek styles (silk press, finger waves…), men's cuts and waves (360 waves, high-tops, fades, sponge twists…) and wraps, bonnets and durags
+  - 230 more from CLOVER OOC, from pixie cuts to fantasy and historic styles.
+  - Filter by length, texture, vibe and cut, or search. Your **hair colour** is picked up from your current hair and kept when you switch styles.
+  - **Match my look** has the stylist pick a style that suits your outfit and the scene and that your hair could realistically be styled into.
+- **Outfit ideas.** Tell the stylist the occasion ("rooftop date at sunset", "hiking in the rain") and it builds three outfits to choose from, each with makeup to match. Ideas come with a matching hairstyle and makeup. Wear one as it is, or open it in the builder to tweak it first.
   - When the scene check notices the story heading to an event or venue none of your outfits suit, the stylist builds ideas on its own and a notification asks you to pick one. Tap it, or use the banner on the "Now wearing" card.
 - **Automatic outfit changes.** After character replies, a short scene check picks the outfit that fits what's happening: pyjamas when you head to bed, workout clothes at the gym, back to work clothes the next morning. It only changes when the story clearly calls for it.
   - It sends one small extra request per reply (or every 2, 3 or 5 replies). Send these to a cheaper sidecar model (below), or turn the check off.
@@ -45,6 +50,7 @@ It works in [SillyTavern](https://github.com/SillyTavern/SillyTavern) and [Rever
 - **Slash commands**
   - `/outfit <name>` (alias `/wardrobe`): change outfit (`/outfit none` for undressed). With no name, it returns what you're wearing.
   - `/underwear on|off|toggle`
+  - `/hairstyle <name|random>`: style your hair by name (or at random), keeping your hair colour. With no name, opens the hair picker.
   - `/makeup-look <name|random>`: wear a makeup look by name (or a random one). With no name, opens the picker.
   - `/plan-outfit <occasion>`: get three outfit ideas for an occasion and choose one.
   - `/stylist [fill|all|undo]`: run the stylist (fill empty slots by default), restyle everything, or undo the last styling.
@@ -71,9 +77,10 @@ Then open the Extensions panel and expand **Persona Wardrobe**.
 
 ## Credits
 
-The outfit builder's clothing pieces and the makeup picker's looks come from [CLOVER OOC](https://github.com/aceeenvw/clover-ooc) by **aceenvw**, used under its license, which requires this credit and link for public reuse.
-They are in `data/pieces.json` and `data/makeup.json`; please keep this credit if you share or adapt the extension.
+The outfit builder's clothing pieces, the makeup looks and most hairstyles come from [CLOVER OOC](https://github.com/aceeenvw/clover-ooc) by **aceenvw**, used under its license, which requires this credit and link for public reuse.
+They are in `data/pieces.json`, `data/makeup.json` and `data/hair.json`; please keep this credit if you share or adapt the extension.
+The Black hairstyles collection (`data/hair-black.json`) was written for Persona Wardrobe and is MIT like the code.
 
 ## License
 
-The code is MIT. `data/pieces.json` and `data/makeup.json` are not covered by the MIT license: it stays under [CLOVER OOC's terms](https://github.com/aceeenvw/clover-ooc#-license) (credit aceenvw and link the repository; don't claim it as your own or repackage it for sale).
+The code and `data/hair-black.json` are MIT. `data/pieces.json`, `data/makeup.json` and `data/hair.json` are not covered by the MIT license: it stays under [CLOVER OOC's terms](https://github.com/aceeenvw/clover-ooc#-license) (credit aceenvw and link the repository; don't claim it as your own or repackage it for sale).
