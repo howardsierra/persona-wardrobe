@@ -991,6 +991,47 @@
     overflow-y: auto;
 }
 
+/* ---------- sidecar ---------- */
+
+.persona-wardrobe .pw-sidecar {
+    margin-top: 8px;
+    padding: 10px 12px 12px;
+    border-radius: var(--pw-radius);
+    border: 1px solid var(--pw-border);
+    background: var(--pw-surface);
+}
+
+.persona-wardrobe .pw-sidecar .pw-grid > .pw-field:first-child,
+.persona-wardrobe .pw-sidecar .pw-grid > .pw-field:nth-child(2) {
+    margin-top: 0;
+}
+
+.persona-wardrobe .pw-inline {
+    display: flex;
+    gap: 6px;
+}
+
+.persona-wardrobe .pw-inline .text_pole {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.persona-wardrobe .pw-sidecar-test {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 10px;
+    margin: 12px 0 8px;
+}
+
+.persona-wardrobe .pw-sidecar-test .pw-hint {
+    flex: 1 1 160px;
+}
+
+.persona-wardrobe .pw-hint.pw-hint-ok {
+    color: #16a34a;
+}
+
 /* ---------- buttons shared by popups ---------- */
 
 .persona-wardrobe .pw-btn.is-primary {

@@ -5,6 +5,7 @@
 import { LOG, NONE_ID } from './config.js';
 import { ctx, getSettings, getWardrobe, getWardrobeKey, uniqueId, save } from './state.js';
 import { updatePromptInjection } from './prompts.js';
+import { getSidecar, sidecarChat } from './sidecar.js';
 import { SLOTS, loadCatalog, relevantSample, normalizePieces, hasAnyPiece, composeText, guessGender } from './catalog.js';
 
 const MAX_TEXT = 600;
@@ -102,11 +103,14 @@ export function listProfiles() {
     }
 }
 
-// Send one background request. Uses the chosen connection profile, else the current chat connection.
+// Send one background request: through the sidecar API, a connection profile, or the chat's own connection.
 async function ask(system, user, { responseLength = null } = {}) {
     const c = ctx();
-    const s = getSettings();
-    const profileId = s.profileId && listProfiles().some(p => p.id === s.profileId) ? s.profileId : '';
+    const sc = getSidecar();
+    if (sc.mode === 'custom') {
+        return await sidecarChat([{ role: 'system', content: system }, { role: 'user', content: user }], { maxTokens: responseLength });
+    }
+    const profileId = sc.mode === 'profile' && sc.profileId && listProfiles().some(p => p.id === sc.profileId) ? sc.profileId : '';
 
     if (profileId && typeof c.ConnectionManagerRequestService?.sendRequest === 'function') {
         const messages = [{ role: 'system', content: system }, { role: 'user', content: user }];
@@ -412,6 +416,7 @@ export async function requestLooks({ occasion, count = 3, fixed = null, includeS
     const name = userName();
     const desc = personaDescription();
     const w = getWardrobe();
+    const makeup = w.extras.find(e => e.id === 'makeup');
     const pref = getSettings().builderGender;
     const gender = pref === 'all' ? '' : (pref || guessGender(desc));
 
@@ -450,12 +455,13 @@ export async function requestLooks({ occasion, count = 3, fixed = null, includeS
         '',
         'Rules:',
         '- Each outfit is either separates (top + bottom) or a dress / one-piece. Shoes are expected. Outerwear is optional; 0-3 accessories.',
-        `- Fit the occasion, venue, likely weather and ${name}'s personality, body and style. Clothes only: no hair or makeup.`,
+        `- Fit the occasion, venue, likely weather and ${name}'s personality, body and style. Clothes go in the outfit fields; hair belongs elsewhere.`,
+        ...(makeup ? [`- Also suggest makeup that suits the outfit and occasion in "makeup" (one short sentence, in ${name}'s style; their usual makeup: ${truncate(makeup.text || 'not set', 160)}).`] : []),
         count > 1 ? '- Make the outfits clearly different from each other.' : '- Make it look put together.',
         '- Give each a short name (2-4 words) and one sentence on why it suits the occasion.',
         '',
         'Reply with only this JSON:',
-        JSON.stringify({ looks: [{ name: '...', mode: 'separates|dress', top: '', bottom: '', dress: '', outer: '', shoes: '', accessories: [''], why: '...' }] }),
+        JSON.stringify({ looks: [{ name: '...', mode: 'separates|dress', top: '', bottom: '', dress: '', outer: '', shoes: '', accessories: [''], ...(makeup ? { makeup: '' } : {}), why: '...' }] }),
     );
 
     const system = 'You are a costume designer for an interactive story. You build outfits that fit a character and an occasion. You reply with JSON only.';
@@ -473,7 +479,7 @@ export async function requestLooks({ occasion, count = 3, fixed = null, includeS
             if (fixed.mode) pieces.mode = fixed.mode === 'dress' ? 'dress' : 'separates';
         }
         if (!hasAnyPiece(pieces)) continue;
-        looks.push({ name: truncate(cleanValue(l.name) || occasion, 40), why: cleanValue(l.why), pieces });
+        looks.push({ name: truncate(cleanValue(l.name) || occasion, 40), why: cleanValue(l.why), makeup: makeup ? cleanValue(l.makeup) : '', pieces });
     }
     if (!looks.length) throw new Error('the reply had no usable outfits');
     return looks.slice(0, Math.max(1, count));
@@ -544,6 +550,9 @@ export function wearLook(index) {
     if (!look) return false;
     const w = getWardrobe();
     const o = addOutfitFromPieces(look.name, look.pieces);
+    // A look can come with makeup for the occasion.
+    const makeup = w.extras.find(e => e.id === 'makeup');
+    if (makeup && look.makeup) makeup.text = look.makeup;
     w.looks = null;
     commit();
     toast('success', `${userName()} is now wearing ${o.label}.`, { timeout: 3000 });

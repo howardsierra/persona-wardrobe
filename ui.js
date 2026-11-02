@@ -6,6 +6,7 @@ import { updatePromptInjection } from './prompts.js';
 import { esc, icon, snippet } from './html.js';
 import { status, styleWardrobe, undoStyling, canUndo, personaDescription, descriptionChangedSinceStyling, listProfiles, pendingLooks } from './stylist.js';
 import { openBuilder, openLooks, refreshPopups } from './builder.js';
+import { SIDECAR_PROVIDERS, getSidecar, setSidecar, sidecarModels, testSidecar } from './sidecar.js';
 
 const PANEL_ID = 'persona_wardrobe_settings';
 const MODAL_ID = 'persona_wardrobe_quick';
@@ -211,22 +212,61 @@ export function setupUI(attempt = 0) {
                         ${switchHtml('id="pw_model_changes"', 'Let the story model change outfits', 'feather',
                             'The model that writes the story can also switch outfits with a hidden tag at the end of its reply. No extra requests.')}
                         ${switchHtml('id="pw_notify"', 'Notify me about changes', 'circle-info')}
-                        <div class="pw-grid">
-                            <div class="pw-field">
-                                <label for="pw_scene_every">Scene check</label>
-                                <select id="pw_scene_every" class="text_pole">
-                                    <option value="1">After every reply</option>
-                                    <option value="2">Every 2 replies</option>
-                                    <option value="3">Every 3 replies</option>
-                                    <option value="5">Every 5 replies</option>
-                                </select>
-                            </div>
-                            <div class="pw-field">
-                                <label for="pw_profile">Model for wardrobe tasks</label>
-                                <select id="pw_profile" class="text_pole"></select>
-                            </div>
+                        <div class="pw-field">
+                            <label for="pw_scene_every">Scene check</label>
+                            <select id="pw_scene_every" class="text_pole">
+                                <option value="1">After every reply</option>
+                                <option value="2">Every 2 replies</option>
+                                <option value="3">Every 3 replies</option>
+                                <option value="5">Every 5 replies</option>
+                            </select>
                         </div>
-                        <div class="pw-hint">The stylist and scene check send their own small requests. Pick a cheaper connection profile to save on cost.</div>
+
+                        <div class="pw-subhead">Sidecar model</div>
+                        <div class="pw-field">
+                            <label for="pw_sidecar_mode">The stylist and scene check use</label>
+                            <select id="pw_sidecar_mode" class="text_pole"></select>
+                            <div class="pw-hint" id="pw_sidecar_hint"></div>
+                        </div>
+                        <div class="pw-sidecar" id="pw_sidecar_box">
+                            <div class="pw-grid">
+                                <div class="pw-field">
+                                    <label for="pw_sc_provider">Provider</label>
+                                    <select id="pw_sc_provider" class="text_pole">
+                                        ${Object.entries(SIDECAR_PROVIDERS).map(([k, p]) => `<option value="${k}">${esc(p.label)}</option>`).join('')}
+                                    </select>
+                                </div>
+                                <div class="pw-field">
+                                    <label for="pw_sc_key" id="pw_sc_key_label">API key</label>
+                                    <input id="pw_sc_key" class="text_pole" type="password" autocomplete="off" spellcheck="false" />
+                                </div>
+                                <div class="pw-field pw-span-2">
+                                    <label for="pw_sc_url">API URL</label>
+                                    <input id="pw_sc_url" class="text_pole" type="url" spellcheck="false" />
+                                </div>
+                                <div class="pw-field pw-span-2">
+                                    <label for="pw_sc_model">Model</label>
+                                    <div class="pw-inline">
+                                        <input id="pw_sc_model" class="text_pole" type="text" list="pw_sc_models" spellcheck="false" placeholder="Load models, or type a model id" />
+                                        <button type="button" class="pw-btn pw-btn-ghost" id="pw_sc_load"><span class="pw-btn-icon">${icon('list')}</span><span>Load models</span></button>
+                                    </div>
+                                    <datalist id="pw_sc_models"></datalist>
+                                </div>
+                                <div class="pw-field">
+                                    <label for="pw_sc_max">Max reply tokens</label>
+                                    <input id="pw_sc_max" class="text_pole" type="number" min="200" max="16000" step="100" />
+                                </div>
+                                <div class="pw-field">
+                                    <label for="pw_sc_temp">Temperature</label>
+                                    <input id="pw_sc_temp" class="text_pole" type="number" min="0" max="2" step="0.1" />
+                                </div>
+                            </div>
+                            <div class="pw-sidecar-test">
+                                <button type="button" class="pw-btn" id="pw_sc_test"><span class="pw-btn-icon">${icon('plug-circle-check')}</span><span>Test connection</span></button>
+                                <span class="pw-hint" id="pw_sc_status" role="status"></span>
+                            </div>
+                            <div class="pw-hint">The key is saved with your extension settings (not encrypted) and is only sent to the API URL above, straight from your browser.</div>
+                        </div>
                         <div class="pw-subhead">Wardrobe</div>
                         <div class="pw-field">
                             <label for="pw_scope">Wardrobe belongs to</label>
@@ -284,7 +324,7 @@ function bindHandlers() {
     $id('pw_auto_style').addEventListener('change', e => { s().autoStyle = e.target.checked; save(); });
     $id('pw_scene_check').addEventListener('change', e => { s().sceneCheck = e.target.checked; save(); syncUI(); });
     $id('pw_scene_every').addEventListener('change', e => { s().sceneEvery = Number(e.target.value) || 1; save(); });
-    $id('pw_profile').addEventListener('change', e => { s().profileId = e.target.value; save(); });
+    bindSidecar();
 
     $id('pw_style_fill').addEventListener('click', () => styleWardrobe('fill'));
     $id('pw_style_all').addEventListener('click', () => {
@@ -573,15 +613,103 @@ function renderHeadChip() {
     chip.classList.toggle('is-off', !s.enabled);
 }
 
-function renderProfiles() {
-    const sel = $id('pw_profile');
-    const s = getSettings();
+// ---------- sidecar ----------
+
+const SIDECAR_HINTS = {
+    chat: 'Uses the same model as your story. Pick a sidecar to send these requests to a cheaper model instead.',
+    profile: 'Uses this connection profile for wardrobe requests; the story keeps its own model.',
+    custom: 'Calls the API below directly. A small, fast model is plenty for picking outfits.',
+};
+
+function renderSidecar() {
+    const sc = getSidecar();
+    const sel = $id('pw_sidecar_mode');
     const profiles = listProfiles();
-    const missing = s.profileId && !profiles.some(p => p.id === s.profileId);
-    sel.innerHTML = '<option value="">Same as the chat</option>'
-        + profiles.map(p => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('')
-        + (missing ? `<option value="${esc(s.profileId)}">Missing profile (uses the chat's)</option>` : '');
-    sel.value = s.profileId || '';
+    const missing = sc.profileId && !profiles.some(p => p.id === sc.profileId);
+    sel.innerHTML = '<option value="chat">The chat\'s model</option>'
+        + profiles.map(p => `<option value="profile:${esc(p.id)}">Connection profile: ${esc(p.name)}</option>`).join('')
+        + (missing ? `<option value="profile:${esc(sc.profileId)}">Missing profile (falls back to the chat's)</option>` : '')
+        + '<option value="custom">Sidecar API (any model)</option>';
+    sel.value = sc.mode === 'profile' ? `profile:${sc.profileId}` : sc.mode;
+    if (!sel.value) sel.value = 'chat';
+    $id('pw_sidecar_hint').textContent = SIDECAR_HINTS[sc.mode] || '';
+
+    const box = $id('pw_sidecar_box');
+    box.hidden = sc.mode !== 'custom';
+    if (box.hidden) return;
+    const provider = SIDECAR_PROVIDERS[sc.provider];
+    const focused = document.activeElement;
+    $id('pw_sc_provider').value = sc.provider;
+    $id('pw_sc_key_label').textContent = provider.key ? 'API key' : 'API key (optional)';
+    $id('pw_sc_url').placeholder = provider.url || 'https://your-server/v1';
+    for (const [id, value] of [['pw_sc_key', sc.key], ['pw_sc_url', sc.url], ['pw_sc_model', sc.model], ['pw_sc_max', String(sc.maxTokens)], ['pw_sc_temp', String(sc.temperature)]]) {
+        if (focused !== $id(id)) $id(id).value = value;
+    }
+}
+
+function sidecarStatus(text, kind = '') {
+    const el = $id('pw_sc_status');
+    el.textContent = text;
+    el.classList.toggle('pw-hint-accent', kind === 'error');
+    el.classList.toggle('pw-hint-ok', kind === 'ok');
+}
+
+function bindSidecar() {
+    $id('pw_sidecar_mode').addEventListener('change', e => {
+        const v = e.target.value;
+        if (v.startsWith('profile:')) setSidecar({ mode: 'profile', profileId: v.slice(8) });
+        else setSidecar({ mode: v === 'custom' ? 'custom' : 'chat' });
+        sidecarStatus('');
+        renderSidecar();
+    });
+    $id('pw_sc_provider').addEventListener('change', e => {
+        // A new provider means its own URL and models.
+        setSidecar({ provider: e.target.value, url: '', model: '' });
+        $id('pw_sc_models').innerHTML = '';
+        sidecarStatus('');
+        renderSidecar();
+    });
+    $id('pw_sc_key').addEventListener('input', e => setSidecar({ key: e.target.value.trim() }));
+    $id('pw_sc_url').addEventListener('input', e => setSidecar({ url: e.target.value.trim() }));
+    $id('pw_sc_model').addEventListener('input', e => setSidecar({ model: e.target.value.trim() }));
+    $id('pw_sc_max').addEventListener('change', e => { setSidecar({ maxTokens: Math.max(200, parseInt(e.target.value, 10) || 1500) }); renderSidecar(); });
+    $id('pw_sc_temp').addEventListener('change', e => {
+        const t = parseFloat(e.target.value);
+        setSidecar({ temperature: Number.isFinite(t) ? Math.min(2, Math.max(0, t)) : 0.7 });
+        renderSidecar();
+    });
+
+    const busy = (btn, on, iconName) => {
+        btn.disabled = on;
+        btn.querySelector('.pw-btn-icon').innerHTML = on ? icon('spinner', 'fa-spin') : icon(iconName);
+    };
+    $id('pw_sc_load').addEventListener('click', async () => {
+        const btn = $id('pw_sc_load');
+        busy(btn, true, 'list');
+        sidecarStatus('Loading models…');
+        try {
+            const models = await sidecarModels();
+            $id('pw_sc_models').innerHTML = models.map(m => `<option value="${esc(m)}"></option>`).join('');
+            sidecarStatus(models.length ? `${models.length} models found. Click the Model box to pick one.` : 'The API listed no models; type a model id instead.', models.length ? 'ok' : '');
+            if (models.length) $id('pw_sc_model').focus();
+        } catch (e) {
+            sidecarStatus(`Couldn't load models: ${e?.message || e}`, 'error');
+        } finally {
+            busy(btn, false, 'list');
+        }
+    });
+    $id('pw_sc_test').addEventListener('click', async () => {
+        const btn = $id('pw_sc_test');
+        busy(btn, true, 'plug-circle-check');
+        sidecarStatus('Testing…');
+        try {
+            sidecarStatus(`Working: ${await testSidecar()}`, 'ok');
+        } catch (e) {
+            sidecarStatus(`Not working: ${e?.message || e}`, 'error');
+        } finally {
+            busy(btn, false, 'plug-circle-check');
+        }
+    });
 }
 
 function renderStylist() {
@@ -634,7 +762,7 @@ export function syncUI({ force = false } = {}) {
     $id('pw_scene_every').disabled = !s.sceneCheck;
     $id('pw_suggest_looks').checked = !!s.suggestLooks;
     $id('pw_suggest_looks').closest('.pw-switch-row').classList.toggle('is-disabled', !s.sceneCheck);
-    renderProfiles();
+    renderSidecar();
     renderStylist();
     $id('pw_scope').value = s.scope;
     $id('pw_scope_hint').textContent = SCOPE_HINTS[s.scope] || '';

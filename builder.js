@@ -554,6 +554,7 @@ function renderLooks() {
                 <b>${esc(look.name)}</b>
             </div>
             <div class="pw-look-text">${esc(lookText(look))}</div>
+            ${look.makeup ? `<div class="pw-look-why">${icon('paintbrush')}<span>${esc(look.makeup)}</span></div>` : ''}
             ${look.why ? `<div class="pw-look-why">${icon('lightbulb')}<span>${esc(look.why)}</span></div>` : ''}
             <div class="pw-card-actions">
                 <button type="button" class="pw-btn is-primary" data-l-wear="${i}">${icon('shirt')}<span>Wear this</span></button>

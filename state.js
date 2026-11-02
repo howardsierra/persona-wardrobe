@@ -167,7 +167,7 @@ function normalizeWardrobe(w) {
         if (nails && !nails.text && typeof w.nails === 'string') nails.text = w.nails;
         delete w.nails;
     }
-    // Offer built-in details added in later versions (Hair in 1.4) exactly once.
+    // Offer built-in details added in later versions (Hair in 1.4, Makeup in 1.7) exactly once.
     // Wardrobes from before this list existed had already been offered Nails and Jewelry.
     if (!Array.isArray(w.extrasSeen)) w.extrasSeen = ['nails', 'jewelry'];
     for (const d of DEFAULT_EXTRAS) {

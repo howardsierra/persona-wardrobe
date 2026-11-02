@@ -18,10 +18,14 @@ It works in [SillyTavern](https://github.com/SillyTavern/SillyTavern) and [Rever
   - Pick from a catalogue of about 3,000 clothing pieces, filtered by search, style, colour and women's or men's cuts, or type in your own.
   - **Surprise me** fills the empty slots at random, and **Stylist pick** has the stylist finish the outfit in your persona's style.
   - Open it with **Build** on any outfit, or **Build outfit** to make a new one.
-- **Outfit ideas.** Tell the stylist the occasion ("rooftop date at sunset", "hiking in the rain") and it builds three outfits to choose from. Wear one as it is, or open it in the builder to tweak it first.
+- **Outfit ideas.** Tell the stylist the occasion ("rooftop date at sunset", "hiking in the rain") and it builds three outfits to choose from, each with makeup to match. Wear one as it is, or open it in the builder to tweak it first.
   - When the scene check notices the story heading to an event or venue none of your outfits suit, the stylist builds ideas on its own and a notification asks you to pick one. Tap it, or use the banner on the "Now wearing" card.
 - **Automatic outfit changes.** After character replies, a short scene check picks the outfit that fits what's happening: pyjamas when you head to bed, workout clothes at the gym, back to work clothes the next morning. It only changes when the story clearly calls for it.
-  - It sends one small extra request per reply (or every 2, 3 or 5 replies). In Settings you can send these requests to a cheaper connection profile, or turn the check off.
+  - It sends one small extra request per reply (or every 2, 3 or 5 replies). Send these to a cheaper sidecar model (below), or turn the check off.
+- **Sidecar model.** The stylist, scene check and outfit ideas can use a different, cheaper model than your story. In Settings → Sidecar model, pick:
+  - a **connection profile** you already have, or
+  - the **Sidecar API**: choose a provider (OpenRouter, OpenAI, DeepSeek, Google AI Studio, Mistral, NanoGPT, Ollama, LM Studio, KoboldCpp or any OpenAI-compatible URL), paste an API key, then **Load models** and **Test connection**.
+  - The sidecar is called straight from your browser. The key is stored with your extension settings (not encrypted). Local servers need to allow requests from the page (CORS); if a provider blocks browser requests, use a connection profile instead.
 
 - **Per-chat wardrobes (default).** Each chat has its own wardrobe, saved inside the chat file, so the same persona can dress
   completely differently on different cards or in different storylines. Branching a chat copies its wardrobe.
@@ -32,7 +36,7 @@ It works in [SillyTavern](https://github.com/SillyTavern/SillyTavern) and [Rever
 - **Quick switch from the chat.** Open the wand / ✨ menu next to the message box and choose **Wardrobe** to change outfits without opening the settings. On phones it opens as a bottom sheet.
 - **Your own outfit slots.** Starts with Work, Everyday, Formal, Loungewear, Sports, Bedtime. Rename, reorder, delete, or add as many as you like.
 - **Underwear layer** with an on/off toggle.
-- **Always-worn details: Hair, Nails and Jewelry.** These stay the same whatever outfit you're in. Add your own too (makeup, perfume, tattoos…) with **Add detail**, and rename them or pick an icon.
+- **Always-worn details: Hair, Makeup, Nails and Jewelry.** These stay the same whatever outfit you're in. Add your own too (perfume, tattoos, glasses…) with **Add detail**, and rename them or pick an icon.
   The model can change them as well, for example when a character braids your hair, paints your nails or gives you a necklace.
 - **Prompt injection.** The model is told what you're currently wearing. Position, depth and role are configurable.
 - **Model-driven changes (optional).** The model can change your outfit when the story calls for it by ending its reply with a hidden tag
@@ -42,8 +46,8 @@ It works in [SillyTavern](https://github.com/SillyTavern/SillyTavern) and [Rever
   - `/underwear on|off|toggle`
   - `/plan-outfit <occasion>`: get three outfit ideas for an occasion and choose one.
   - `/stylist [fill|all|undo]`: run the stylist (fill empty slots by default), restyle everything, or undo the last styling.
-  - `/hair`, `/nails` and `/jewelry` followed by a description: set them (`none` clears). With no text, they return the current description.
-- **Macros** for use in cards, Author's Note, Quick Replies, etc.: `{{outfit}}`, `{{outfit_name}}`, `{{outfit_text}}`, `{{underwear}}`, `{{hair}}`, `{{nails}}`, `{{jewelry}}`.
+  - `/hair`, `/makeup`, `/nails` and `/jewelry` followed by a description: set them (`none` clears). With no text, they return the current description.
+- **Macros** for use in cards, Author's Note, Quick Replies, etc.: `{{outfit}}`, `{{outfit_name}}`, `{{outfit_text}}`, `{{underwear}}`, `{{hair}}`, `{{makeup}}`, `{{nails}}`, `{{jewelry}}`.
 
 Nothing is ever auto-filled. Every outfit is text you type in. Empty outfits aren't offered to the model, and if the wardrobe is completely empty nothing is injected.
 

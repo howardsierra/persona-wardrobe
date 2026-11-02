@@ -23,7 +23,7 @@ export const ICON_CHOICES = [
     'shirt', 'vest', 'user-tie', 'briefcase', 'gem', 'crown', 'ring', 'couch',
     'mug-hot', 'dumbbell', 'person-running', 'person-swimming', 'umbrella-beach', 'sun', 'snowflake', 'cloud-rain',
     'moon', 'bed', 'heart', 'star', 'fire', 'leaf', 'paw', 'mask',
-    'hat-wizard', 'hat-cowboy', 'graduation-cap', 'glasses', 'socks', 'mitten', 'shoe-prints', 'wand-magic-sparkles', 'hand-sparkles', 'palette', 'scissors', 'spray-can-sparkles',
+    'hat-wizard', 'hat-cowboy', 'graduation-cap', 'glasses', 'socks', 'mitten', 'shoe-prints', 'wand-magic-sparkles', 'hand-sparkles', 'palette', 'scissors', 'spray-can-sparkles', 'paintbrush',
 ];
 export const DEFAULT_ICON = 'shirt';
 export const NONE_ICON = 'bath';
@@ -38,6 +38,8 @@ export const DEFAULT_EXTRAS = [
         placeholder: 'e.g. Small gold hoops, a thin chain with a moon pendant, a silver ring on the left thumb' },
     { id: 'hair', label: 'Hair', icon: 'scissors',
         placeholder: 'e.g. Shoulder-length copper waves, loose, with a tortoiseshell clip holding back one side' },
+    { id: 'makeup', label: 'Makeup', icon: 'paintbrush',
+        placeholder: 'e.g. Smudged black eyeliner, bare skin otherwise, a clear lip balm' },
 ];
 export const EXTRA_ICON = 'star';
 // Tag attributes and ids an extra can't use.
@@ -78,7 +80,9 @@ export const defaultSettings = {
     autoStyle: true,         // dress brand-new, empty wardrobes from the persona description
     sceneCheck: true,        // after replies, ask the model which outfit fits the scene
     sceneEvery: 1,           // ...every N character replies
-    profileId: '',           // connection profile for stylist / scene check ('' = the chat's connection)
+    profileId: '',           // (1.5-1.6) connection profile; moved into sidecar.profileId
+    // Model for the stylist and scene check; see sidecar.js. mode is filled in on first read.
+    sidecar: { profileId: '', provider: 'openrouter', url: '', key: '', model: '', maxTokens: 1500, temperature: 0.7 },
     suggestLooks: true,      // when the scene check spots an occasion, build outfit ideas to choose from
     builderGender: '',       // builder / stylist piece filter: 'f', 'm' or '' (guess from the persona)
     position: POSITION.IN_CHAT,
