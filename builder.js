@@ -9,7 +9,7 @@ import {
     loadCatalog, catalogLoaded, filterPieces, randomPiece, guessGender,
 } from './catalog.js';
 import { status, requestLooks, pendingLooks, planOutfits, wearLook, dismissLooks, addOutfitFromPieces, lookText, personaDescription, chooseLook } from './stylist.js';
-import { makeupLib, hairLib, sentence, hairColourOf, hairText } from './library.js';
+import { makeupLib, hairLib, nailsLib, sentence, KEEPERS } from './library.js';
 
 const BUILDER_ID = 'persona_wardrobe_builder';
 const LOOKS_ID = 'persona_wardrobe_looks';
@@ -558,6 +558,7 @@ function renderLooks() {
             <div class="pw-look-text">${esc(lookText(look))}</div>
             ${look.hair ? `<div class="pw-look-why">${icon('scissors')}<span>${esc(look.hair)}</span></div>` : ''}
             ${look.makeup ? `<div class="pw-look-why">${icon('paintbrush')}<span>${esc(look.makeup)}</span></div>` : ''}
+            ${look.nails ? `<div class="pw-look-why">${icon('hand-sparkles')}<span>${esc(look.nails)}</span></div>` : ''}
             ${look.why ? `<div class="pw-look-why">${icon('lightbulb')}<span>${esc(look.why)}</span></div>` : ''}
             <div class="pw-card-actions">
                 <button type="button" class="pw-btn is-primary" data-l-wear="${i}">${icon('shirt')}<span>Wear this</span></button>
@@ -604,7 +605,7 @@ const PICKERS = {
         match: 'Match my look',
         matchTitle: 'Let the stylist pick a style that suits your hair, outfit and the scene',
         clear: null,
-        colour: true,
+        keep: KEEPERS.hair,
         filters: () => {
             const vibes = [...new Set(hairLib.all().flatMap(l => l.vibes || []))].sort();
             return [
@@ -615,12 +616,34 @@ const PICKERS = {
             ];
         },
         defaults: () => ({ gender: genderPref() }),
-        text: (look, st) => hairText(st.colour, look),
+        text: (look, st) => KEEPERS.hair.compose(st.keep, look),
         used: (name, look) => `${name}'s hair is now ${look.title}.`,
+    },
+    nails: {
+        lib: nailsLib,
+        detail: { id: 'nails', label: 'Nails', icon: 'hand-sparkles' },
+        title: 'Nail art',
+        icon: 'hand-sparkles',
+        search: 'Search designs, e.g. chrome, cherries, French',
+        current: 'Current nails',
+        match: 'Match my outfit',
+        matchTitle: 'Let the stylist pick a design that suits your outfit and the scene',
+        clear: null,
+        keep: KEEPERS.nails,
+        filters: () => {
+            const vibes = [...new Set(nailsLib.all().flatMap(l => l.vibes || []))].sort();
+            const colours = [...new Set(nailsLib.all().map(l => l.colour).filter(Boolean))].sort();
+            return [
+                { key: 'vibes', label: 'Any vibe', options: vibes.map(v => [v, nice(v)]) },
+                { key: 'colour', label: 'Any colour', options: colours.map(c => [c, nice(c)]) },
+            ];
+        },
+        text: (look, st) => KEEPERS.nails.compose(st.keep, look),
+        used: (name, look) => `${name}'s nails are now ${look.title}.`,
     },
 };
 
-/** @type {null | {kind: string, cfg: object, frame: any, section: string, query: string, attrs: object, colour: string, pickedId: string, note: string, busy: boolean}} */
+/** @type {null | {kind: string, cfg: object, frame: any, section: string, query: string, attrs: object, keep: object, pickedId: string, note: string, busy: boolean}} */
 let pk = null;
 
 function pickerDetail(cfg, create = false) {
@@ -633,14 +656,14 @@ function pickerDetail(cfg, create = false) {
     return e;
 }
 
-/** Open the makeup ('makeup') or hairstyle ('hair') picker. */
+/** Open the makeup ('makeup'), hairstyle ('hair') or nail art ('nails') picker. */
 export function openPicker(kind) {
     const cfg = PICKERS[kind];
     if (!cfg) return;
     const w = getWardrobe();
     pk = {
         kind, cfg, section: '', query: '', attrs: cfg.defaults?.() || {}, pickedId: '', note: '', busy: false,
-        colour: w.hairColor ?? hairColourOf(pickerDetail(cfg)?.text),
+        keep: cfg.keep ? cfg.keep.read(w, pickerDetail(cfg)?.text) : {},
     };
     const state = pk;
     pk.frame = openFrame(PICKER_ID, {
@@ -653,11 +676,16 @@ export function openPicker(kind) {
             <div class="pw-now-kicker">${esc(cfg.current)}</div>
             <div data-m-current></div>
         </div>
-        ${cfg.colour ? `
-        <div class="pw-field pw-m-colour">
-            <label for="pw_m_colour">Hair colour</label>
-            <input id="pw_m_colour" type="text" class="text_pole" data-m-colour maxlength="60" placeholder="e.g. jet black, copper, honey blonde with dark roots" />
-            <div class="pw-hint">Kept when you switch styles. Leave empty to describe the style only.</div>
+        ${cfg.keep ? `
+        <div class="pw-m-keep">
+            ${cfg.keep.fields.map(f => `
+            <div class="pw-field">
+                <label for="pw_m_${f.key}">${esc(f.label)}</label>
+                ${f.type === 'select'
+                    ? `<select id="pw_m_${f.key}" class="text_pole" data-m-keep="${f.key}"><option value="">Not set</option>${f.options.map(([v, label]) => `<option value="${esc(v)}">${esc(label)}</option>`).join('')}</select>`
+                    : `<input id="pw_m_${f.key}" type="text" class="text_pole" data-m-keep="${f.key}" maxlength="60" placeholder="${esc(f.placeholder || '')}" />`}
+            </div>`).join('')}
+            <div class="pw-hint pw-m-keep-hint">${esc(cfg.keep.hint)}</div>
         </div>` : ''}
         <label class="pw-b-search pw-m-search">${icon('magnifying-glass')}<input type="search" class="text_pole" data-m-query placeholder="${esc(cfg.search)}" aria-label="Search" /></label>
         <div class="pw-b-filters pw-m-filters" data-m-filters></div>
@@ -665,18 +693,20 @@ export function openPicker(kind) {
         <div class="pw-m-note" data-m-note hidden></div>
         <div class="pw-m-count pw-hint" data-m-count></div>
         <div class="pw-m-list" data-m-list></div>
-        <a class="pw-credit" href="${cfg.lib.credit.url}" target="_blank" rel="noopener">${esc(cfg.lib.credit.text)} ${icon('arrow-up-right-from-square')}</a>`;
+        ${cfg.lib.credit ? `<a class="pw-credit" href="${cfg.lib.credit.url}" target="_blank" rel="noopener">${esc(cfg.lib.credit.text)} ${icon('arrow-up-right-from-square')}</a>` : ''}`;
     foot.innerHTML = `
         <button type="button" class="pw-btn pw-btn-ghost" data-m-ai title="${esc(cfg.matchTitle)}"><span class="pw-btn-icon">${icon('wand-magic-sparkles')}</span><span>${esc(cfg.match)}</span></button>
         <button type="button" class="pw-icon-btn" data-m-random title="Surprise me">${icon('shuffle')}</button>
         <span class="pw-spacer"></span>
         ${cfg.clear ? `<button type="button" class="pw-btn pw-btn-ghost" data-m-clear>${icon('eraser')}<span>${esc(cfg.clear)}</span></button>` : ''}`;
 
-    if (cfg.colour) {
-        const input = body.querySelector('[data-m-colour]');
-        input.value = pk.colour;
-        input.addEventListener('input', e => { pk.colour = e.target.value.trim(); renderPicker(); });
-    }
+    body.querySelectorAll('[data-m-keep]').forEach(el => {
+        el.value = pk.keep[el.dataset.mKeep] || '';
+        el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', e => {
+            pk.keep[el.dataset.mKeep] = e.target.value.trim();
+            renderPicker();
+        });
+    });
     body.querySelector('[data-m-query]').addEventListener('input', e => { pk.query = e.target.value; renderPicker(); });
     body.addEventListener('change', e => {
         const f = e.target.closest('[data-m-filter]');
@@ -731,7 +761,7 @@ function renderFilters() {
 function renderSections() {
     const box = pk.frame.body.querySelector('[data-m-sections]');
     const sections = pk.cfg.lib.sections();
-    if (sections.length <= 8) {
+    if (sections.length <= 9) {
         box.innerHTML = [{ id: '', name: 'All' }, ...sections].map(sec =>
             `<button type="button" class="pw-m-chip${pk.section === sec.id ? ' is-active' : ''}" data-m-section="${esc(sec.id)}" role="tab" aria-selected="${pk.section === sec.id}"${sec.description ? ` title="${esc(sec.description)}"` : ''}>${esc(sec.name)}</button>`).join('');
         return;
@@ -831,7 +861,7 @@ function usePick(id) {
     const look = cfg.lib.all().find(l => l.id === id);
     if (!look) return;
     pickerDetail(cfg, true).text = cfg.text(look, pk);
-    if (cfg.colour) getWardrobe().hairColor = pk.colour;
+    if (cfg.keep) cfg.keep.store(getWardrobe(), pk.keep);
     commit();
     toast('success', cfg.used(userName(), look));
     closeFrame(PICKER_ID);

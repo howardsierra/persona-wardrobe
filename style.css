@@ -1433,8 +1433,25 @@
     margin: 0;
 }
 
-.persona-wardrobe .pw-m-colour {
+.persona-wardrobe .pw-m-keep {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    column-gap: 10px;
     margin-top: 12px;
+}
+
+.persona-wardrobe .pw-m-keep .pw-field {
+    margin-top: 0;
+}
+
+.persona-wardrobe .pw-m-keep .pw-field .text_pole {
+    width: 100%;
+    margin: 0;
+}
+
+.persona-wardrobe .pw-m-keep-hint {
+    grid-column: 1 / -1;
+    margin-top: 4px;
 }
 
 .persona-wardrobe .pw-m-filters {

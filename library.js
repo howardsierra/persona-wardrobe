@@ -1,6 +1,6 @@
-// Persona Wardrobe - looks libraries for the makeup and hair pickers.
+// Persona Wardrobe - looks libraries for the makeup, hair and nail pickers.
 // Makeup looks and most hairstyles come from CLOVER OOC by aceenvw (https://github.com/aceeenvw/clover-ooc),
-// used with credit. The Black hairstyles collection (data/hair-black.json) is Persona Wardrobe's own.
+// used with credit. The Black hairstyles (data/hair-black.json) and nail art (data/nails.json) are Persona Wardrobe's own.
 
 import { LOG } from './config.js';
 
@@ -113,6 +113,12 @@ export function rankByContext(looks, context, n) {
         .map(x => x.l);
 }
 
+export const nailsLib = createLibrary({
+    name: 'nail designs',
+    files: [{ file: 'nails.json', group: 'Nail art' }],
+    credit: null,
+});
+
 /** "fine espresso-brown liner, ..." -> "Fine espresso-brown liner, ...." */
 export function sentence(text) {
     const t = String(text || '').trim();
@@ -142,3 +148,55 @@ export function hairText(colour, look) {
     const c = String(colour || '').trim();
     return sentence(c ? `${c} hair, ${style}` : style);
 }
+
+// ---------- nail length and shape ----------
+
+export const NAIL_LENGTHS = [['short', 'Short'], ['medium', 'Medium'], ['long', 'Long'], ['extra-long', 'Extra-long']];
+export const NAIL_SHAPES = [
+    ['round', 'Round'], ['oval', 'Oval'], ['squoval', 'Squoval'], ['square', 'Square'], ['almond', 'Almond'],
+    ['coffin', 'Coffin'], ['stiletto', 'Stiletto'], ['duck', 'Duck'],
+];
+
+/** Read length and shape from a nail description: "Short nails painted..." -> {length: 'short', shape: ''}. */
+export function nailFormOf(text) {
+    const t = ` ${String(text || '').toLowerCase()} `;
+    const length = /\b(extra[- ]long|xl)\b/.test(t) ? 'extra-long'
+        : /\blong\b/.test(t) ? 'long'
+            : /\b(medium|mid-length)\b/.test(t) ? 'medium'
+                : /\b(short|stubby|bitten)\b/.test(t) ? 'short' : '';
+    const shape = /\bballerina\b/.test(t) ? 'coffin' : (NAIL_SHAPES.find(([k]) => new RegExp(`\\b${k}\\b`).test(t))?.[0] || '');
+    return { length, shape };
+}
+
+/** {length: 'long', shape: 'almond'} + "glazed..." -> "Long almond nails, glazed...". */
+export function nailText(form, look) {
+    const design = String(look?.text || '').trim();
+    const words = [form?.length, form?.shape].filter(Boolean).join(' ');
+    return sentence(words ? `${words} nails, ${design}` : design);
+}
+
+// ---------- what a picker keeps when switching looks ----------
+
+/** Fields kept across looks (hair colour; nail length and shape), how to read them, and how to compose the text. */
+export const KEEPERS = {
+    hair: {
+        fields: [{ key: 'colour', label: 'Hair colour', type: 'text', placeholder: 'e.g. jet black, copper, honey blonde with dark roots' }],
+        hint: 'Kept when you switch styles. Leave empty to describe the style only.',
+        read: (w, text) => ({ colour: w.hairColor ?? hairColourOf(text) }),
+        store: (w, v) => { w.hairColor = v.colour || ''; },
+        compose: (v, look) => hairText(v.colour, look),
+    },
+    nails: {
+        fields: [
+            { key: 'length', label: 'Length', type: 'select', options: NAIL_LENGTHS },
+            { key: 'shape', label: 'Shape', type: 'select', options: NAIL_SHAPES },
+        ],
+        hint: 'Kept when you switch designs.',
+        read: (w, text) => {
+            const f = nailFormOf(text);
+            return { length: w.nailLength ?? f.length, shape: w.nailShape ?? f.shape };
+        },
+        store: (w, v) => { w.nailLength = v.length || ''; w.nailShape = v.shape || ''; },
+        compose: (v, look) => nailText(v, look),
+    },
+};

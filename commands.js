@@ -5,7 +5,7 @@ import { ctx, getWardrobe, findOutfit, save } from './state.js';
 import { describeClothing, updatePromptInjection } from './prompts.js';
 import { styleWardrobe, undoStyling, planOutfits } from './stylist.js';
 import { openLooks, openPicker } from './builder.js';
-import { makeupLib, hairLib, sentence, hairText, hairColourOf } from './library.js';
+import { makeupLib, hairLib, nailsLib, sentence, KEEPERS } from './library.js';
 
 let onChange = () => {};
 
@@ -89,14 +89,13 @@ async function planCommand(_args, value) {
     return ok ? occasion : '';
 }
 
-// /makeup-look and /hairstyle [name|random]  - wear a look by name; no name opens the picker.
+// /makeup-look, /hairstyle and /nail-art [name|random]  - wear a look by name; no name opens the picker.
+// Hair keeps its colour and nails keep their length and shape.
+const keepText = kind => (w, look) => KEEPERS[kind].compose(KEEPERS[kind].read(w, w.extras.find(x => x.id === kind)?.text), look);
 const LOOK_COMMANDS = {
     makeup: { lib: makeupLib, detail: { id: 'makeup', label: 'Makeup', icon: 'paintbrush' }, noun: 'makeup look', text: (w, look) => sentence(look.text) },
-    hair: {
-        lib: hairLib, detail: { id: 'hair', label: 'Hair', icon: 'scissors' }, noun: 'hairstyle',
-        // Keep the persona's hair colour when switching styles.
-        text: (w, look) => hairText(w.hairColor ?? hairColourOf(w.extras.find(x => x.id === 'hair')?.text), look),
-    },
+    hair: { lib: hairLib, detail: { id: 'hair', label: 'Hair', icon: 'scissors' }, noun: 'hairstyle', text: keepText('hair') },
+    nails: { lib: nailsLib, detail: { id: 'nails', label: 'Nails', icon: 'hand-sparkles' }, noun: 'nail design', text: keepText('nails') },
 };
 
 function lookCommand(kind) {
@@ -163,6 +162,13 @@ function registerSlash(c) {
             helpString: 'Dress your persona from their description. "fill" (default) fills empty slots, "all" restyles everything, "undo" reverts the last styling.',
         }));
         SlashCommandParser.addCommandObject(SlashCommand.fromProps({
+            name: 'nail-art',
+            callback: lookCommand('nails'),
+            returns: 'the nails description',
+            unnamedArgumentList: arg('nail design name, or "random"'),
+            helpString: 'Paint your nails with one of the nail designs by name, or "random", keeping their length and shape. With no name, opens the nail art picker.',
+        }));
+        SlashCommandParser.addCommandObject(SlashCommand.fromProps({
             name: 'hairstyle',
             callback: lookCommand('hair'),
             returns: 'the hair description',
@@ -193,6 +199,7 @@ function registerSlash(c) {
             }));
         }
     } else if (typeof c.registerSlashCommand === 'function') {
+        c.registerSlashCommand('nail-art', lookCommand('nails'), [], 'Paint your nails by design name, or "random".', true, true);
         c.registerSlashCommand('hairstyle', lookCommand('hair'), [], 'Style your hair by hairstyle name, or "random".', true, true);
         c.registerSlashCommand('makeup-look', lookCommand('makeup'), [], 'Wear a makeup look by name, or "random".', true, true);
         c.registerSlashCommand('plan-outfit', planCommand, [], 'Build outfit ideas for an occasion.', true, true);

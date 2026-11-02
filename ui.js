@@ -533,6 +533,7 @@ function renderExtras() {
                 <textarea class="text_pole pw-text" rows="2" placeholder="${esc(placeholder)}" aria-label="${esc(e.label || 'Detail')}">${esc(e.text)}</textarea>
                 ${e.id === 'makeup' ? `<div class="pw-card-actions"><button type="button" class="pw-btn pw-btn-ghost" data-action="browse" data-kind="makeup">${icon('palette')}<span>Browse looks</span></button></div>` : ''}
                 ${e.id === 'hair' ? `<div class="pw-card-actions"><button type="button" class="pw-btn pw-btn-ghost" data-action="browse" data-kind="hair">${icon('scissors')}<span>Browse hairstyles</span></button></div>` : ''}
+                ${e.id === 'nails' ? `<div class="pw-card-actions"><button type="button" class="pw-btn pw-btn-ghost" data-action="browse" data-kind="nails">${icon('hand-sparkles')}<span>Browse nail art</span></button></div>` : ''}
             </div>
         </div>`;
     }).join('');

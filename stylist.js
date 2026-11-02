@@ -439,6 +439,7 @@ export async function requestLooks({ occasion, count = 3, fixed = null, includeS
         } catch { /* optional, like the catalogue */ }
     }
     const hair = w.extras.find(e => e.id === 'hair');
+    const nailsDetail = w.extras.find(e => e.id === 'nails');
     let hairIdeas = [];
     if (hair) {
         try {
@@ -477,11 +478,12 @@ export async function requestLooks({ occasion, count = 3, fixed = null, includeS
         ...(makeupIdeas.length ? ['- Makeup looks you can borrow from or adapt:', ...makeupIdeas.map(l => `  ${l}`)] : []),
         ...(hair ? [`- Also suggest a hairstyle for the occasion in "hair" (one short sentence). Keep ${name}'s hair colour, and only choose styles their hair could realistically be done in (their hair now: ${truncate(hair.text || 'not set', 160)}).`] : []),
         ...(hairIdeas.length ? ['- Hairstyles you can borrow from or adapt:', ...hairIdeas.map(l => `  ${l}`)] : []),
+        ...(nailsDetail ? [`- Also suggest nails for the occasion in "nails" (one short sentence; keep their length and shape: ${truncate(nailsDetail.text || 'not set', 120)}).`] : []),
         count > 1 ? '- Make the outfits clearly different from each other.' : '- Make it look put together.',
         '- Give each a short name (2-4 words) and one sentence on why it suits the occasion.',
         '',
         'Reply with only this JSON:',
-        JSON.stringify({ looks: [{ name: '...', mode: 'separates|dress', top: '', bottom: '', dress: '', outer: '', shoes: '', accessories: [''], ...(makeup ? { makeup: '' } : {}), ...(hair ? { hair: '' } : {}), why: '...' }] }),
+        JSON.stringify({ looks: [{ name: '...', mode: 'separates|dress', top: '', bottom: '', dress: '', outer: '', shoes: '', accessories: [''], ...(makeup ? { makeup: '' } : {}), ...(hair ? { hair: '' } : {}), ...(nailsDetail ? { nails: '' } : {}), why: '...' }] }),
     );
 
     const system = 'You are a costume designer for an interactive story. You build outfits that fit a character and an occasion. You reply with JSON only.';
@@ -499,7 +501,7 @@ export async function requestLooks({ occasion, count = 3, fixed = null, includeS
             if (fixed.mode) pieces.mode = fixed.mode === 'dress' ? 'dress' : 'separates';
         }
         if (!hasAnyPiece(pieces)) continue;
-        looks.push({ name: truncate(cleanValue(l.name) || occasion, 40), why: cleanValue(l.why), makeup: makeup ? cleanValue(l.makeup) : '', hair: hair ? cleanValue(l.hair) : '', pieces });
+        looks.push({ name: truncate(cleanValue(l.name) || occasion, 40), why: cleanValue(l.why), makeup: makeup ? cleanValue(l.makeup) : '', hair: hair ? cleanValue(l.hair) : '', nails: nailsDetail ? cleanValue(l.nails) : '', pieces });
     }
     if (!looks.length) throw new Error('the reply had no usable outfits');
     return looks.slice(0, Math.max(1, count));
@@ -575,6 +577,8 @@ export function wearLook(index) {
     if (makeup && look.makeup) makeup.text = look.makeup;
     const hair = w.extras.find(e => e.id === 'hair');
     if (hair && look.hair) hair.text = look.hair;
+    const nails = w.extras.find(e => e.id === 'nails');
+    if (nails && look.nails) nails.text = look.nails;
     w.looks = null;
     commit();
     toast('success', `${userName()} is now wearing ${o.label}.`, { timeout: 3000 });
@@ -591,6 +595,7 @@ export function lookText(look) {
 const CHOOSERS = {
     makeup: { what: 'makeup look', system: 'You are a makeup artist for an interactive story. You reply with JSON only.', max: 70 },
     hair: { what: 'hairstyle', system: 'You are a hairstylist for an interactive story. You reply with JSON only.', max: 60 },
+    nails: { what: 'nail design', system: 'You are a nail artist for an interactive story. You reply with JSON only.', max: 60 },
 };
 
 /**
@@ -624,11 +629,13 @@ export async function chooseLook(kind, looks) {
         `Wearing now: ${outfit?.text.trim() ? truncate(outfit.text, 300) : w.active === NONE_ID ? 'nothing (undressed)' : 'not described'}`,
     ];
     if (hair?.text.trim()) lines.push(`Hair: ${truncate(hair.text, 160)}`);
-    if (kind === 'hair' && makeup?.text.trim()) lines.push(`Makeup: ${truncate(makeup.text, 160)}`);
+    if (kind !== 'makeup' && makeup?.text.trim()) lines.push(`Makeup: ${truncate(makeup.text, 160)}`);
+    const nails = w.extras.find(e => e.id === 'nails');
+    if (kind === 'nails' && nails?.text.trim()) lines.push(`Nails now: ${truncate(nails.text, 160)}`);
     if (story.length) lines.push('', 'What is happening in the story:', ...story);
     lines.push(
         '',
-        `${kind === 'hair' ? 'Hairstyles' : 'Makeup looks'}:`,
+        `${{ hair: 'Hairstyles', nails: 'Nail designs', makeup: 'Makeup looks' }[kind]}:`,
         ...pool.map(l => `- ${l.id}: ${l.title}. ${truncate(l.text, 150)}`),
         '',
         kind === 'hair'
@@ -640,6 +647,6 @@ export async function chooseLook(kind, looks) {
     const data = parseJsonReply(await ask(c.system, lines.join('\n'), { responseLength: 400 }));
     const id = typeof data?.id === 'string' ? data.id.trim() : '';
     const hit = pool.find(l => l.id === id) || pool.find(l => l.title.toLowerCase() === id.toLowerCase());
-    if (!hit) throw new Error(`the stylist did not pick one of the ${kind === 'hair' ? 'hairstyles' : 'looks'}`);
+    if (!hit) throw new Error(`the stylist did not pick one of the ${{ hair: 'hairstyles', nails: 'designs', makeup: 'looks' }[kind]}`);
     return { id: hit.id, why: cleanValue(data?.why) };
 }
