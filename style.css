@@ -1418,6 +1418,121 @@
     font-size: 0.85em;
 }
 
+/* ---------- makeup picker ---------- */
+
+.persona-wardrobe .pw-m-current {
+    margin-top: 0;
+}
+
+.persona-wardrobe .pw-m-search {
+    margin-top: 12px;
+}
+
+.persona-wardrobe .pw-m-search input.text_pole {
+    width: 100%;
+    margin: 0;
+}
+
+.persona-wardrobe .pw-m-sections {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 10px;
+}
+
+.persona-wardrobe .pw-m-chip {
+    padding: 4px 11px;
+    border-radius: 999px;
+    border: 1px solid var(--pw-border);
+    background: var(--pw-surface);
+    font-size: 0.8em;
+    cursor: pointer;
+    transition: border-color .15s, background .15s;
+}
+
+.persona-wardrobe .pw-m-chip:hover {
+    border-color: var(--pw-accent);
+}
+
+.persona-wardrobe .pw-m-chip.is-active {
+    color: #fff;
+    border-color: transparent;
+    background: linear-gradient(135deg, var(--pw-accent), var(--pw-accent-2));
+    font-weight: 600;
+}
+
+.persona-wardrobe .pw-m-note {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+    padding: 9px 11px;
+    border-radius: 10px;
+    border: 1px solid color-mix(in srgb, var(--pw-accent) 45%, transparent);
+    background: var(--pw-tint);
+    font-size: 0.85em;
+    line-height: 1.4;
+}
+
+.persona-wardrobe .pw-m-note i {
+    margin-top: 2px;
+    color: var(--pw-accent);
+}
+
+.persona-wardrobe .pw-m-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.persona-wardrobe .pw-m-list > .pw-hint {
+    grid-column: 1 / -1;
+}
+
+.persona-wardrobe .pw-m-look {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px 12px;
+    border-radius: var(--pw-radius);
+    border: 1px solid var(--pw-border);
+    background: var(--pw-surface);
+}
+
+.persona-wardrobe .pw-m-look.is-current {
+    border-color: color-mix(in srgb, var(--pw-accent) 55%, var(--pw-border));
+}
+
+.persona-wardrobe .pw-m-look.is-picked {
+    border-color: var(--pw-accent);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--pw-accent) 35%, transparent);
+    background: var(--pw-tint);
+}
+
+.persona-wardrobe .pw-m-look-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 0.92em;
+}
+
+.persona-wardrobe .pw-m-tag {
+    flex: 0 0 auto;
+    font-size: 0.75em;
+    color: var(--pw-faint);
+}
+
+.persona-wardrobe .pw-m-look-text {
+    flex: 1 1 auto;
+    font-size: 0.84em;
+    line-height: 1.45;
+}
+
+.persona-wardrobe .pw-m-look .pw-btn {
+    align-self: flex-start;
+}
+
 /* ---------- outfit ideas ---------- */
 
 .persona-wardrobe .pw-l-plan {

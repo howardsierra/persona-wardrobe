@@ -18,6 +18,7 @@ It works in [SillyTavern](https://github.com/SillyTavern/SillyTavern) and [Rever
   - Pick from a catalogue of about 3,000 clothing pieces, filtered by search, style, colour and women's or men's cuts, or type in your own.
   - **Surprise me** fills the empty slots at random, and **Stylist pick** has the stylist finish the outfit in your persona's style.
   - Open it with **Build** on any outfit, or **Build outfit** to make a new one.
+- **Makeup picker.** **Browse looks** on the Makeup card opens 70 makeup looks in 7 styles (Everyday & Soft, Classic & Polished, Bright Night Out, Glitter & Metallic, Gothic & Dark, Fantasy & Ethereal, Pink Glam). Search them, get a surprise pick, or press **Match my outfit** and the stylist picks the look that suits what you're wearing and what's happening, and says why.
 - **Outfit ideas.** Tell the stylist the occasion ("rooftop date at sunset", "hiking in the rain") and it builds three outfits to choose from, each with makeup to match. Wear one as it is, or open it in the builder to tweak it first.
   - When the scene check notices the story heading to an event or venue none of your outfits suit, the stylist builds ideas on its own and a notification asks you to pick one. Tap it, or use the banner on the "Now wearing" card.
 - **Automatic outfit changes.** After character replies, a short scene check picks the outfit that fits what's happening: pyjamas when you head to bed, workout clothes at the gym, back to work clothes the next morning. It only changes when the story clearly calls for it.
@@ -44,6 +45,7 @@ It works in [SillyTavern](https://github.com/SillyTavern/SillyTavern) and [Rever
 - **Slash commands**
   - `/outfit <name>` (alias `/wardrobe`): change outfit (`/outfit none` for undressed). With no name, it returns what you're wearing.
   - `/underwear on|off|toggle`
+  - `/makeup-look <name|random>`: wear a makeup look by name (or a random one). With no name, opens the picker.
   - `/plan-outfit <occasion>`: get three outfit ideas for an occasion and choose one.
   - `/stylist [fill|all|undo]`: run the stylist (fill empty slots by default), restyle everything, or undo the last styling.
   - `/hair`, `/makeup`, `/nails` and `/jewelry` followed by a description: set them (`none` clears). With no text, they return the current description.
@@ -69,9 +71,9 @@ Then open the Extensions panel and expand **Persona Wardrobe**.
 
 ## Credits
 
-The outfit builder's clothing pieces come from [CLOVER OOC](https://github.com/aceeenvw/clover-ooc) by **aceenvw**, used under its license, which requires this credit and link for public reuse.
-The pieces are in `data/pieces.json`; please keep this credit if you share or adapt the extension.
+The outfit builder's clothing pieces and the makeup picker's looks come from [CLOVER OOC](https://github.com/aceeenvw/clover-ooc) by **aceenvw**, used under its license, which requires this credit and link for public reuse.
+They are in `data/pieces.json` and `data/makeup.json`; please keep this credit if you share or adapt the extension.
 
 ## License
 
-The code is MIT. `data/pieces.json` is not covered by the MIT license: it stays under [CLOVER OOC's terms](https://github.com/aceeenvw/clover-ooc#-license) (credit aceenvw and link the repository; don't claim it as your own or repackage it for sale).
+The code is MIT. `data/pieces.json` and `data/makeup.json` are not covered by the MIT license: it stays under [CLOVER OOC's terms](https://github.com/aceeenvw/clover-ooc#-license) (credit aceenvw and link the repository; don't claim it as your own or repackage it for sale).

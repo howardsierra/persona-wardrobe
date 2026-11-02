@@ -6,6 +6,7 @@ import { LOG, NONE_ID } from './config.js';
 import { ctx, getSettings, getWardrobe, getWardrobeKey, uniqueId, save } from './state.js';
 import { updatePromptInjection } from './prompts.js';
 import { getSidecar, sidecarChat } from './sidecar.js';
+import { loadMakeup, relevantLooks } from './makeup.js';
 import { SLOTS, loadCatalog, relevantSample, normalizePieces, hasAnyPiece, composeText, guessGender } from './catalog.js';
 
 const MAX_TEXT = 600;
@@ -430,6 +431,14 @@ export async function requestLooks({ occasion, count = 3, fixed = null, includeS
         }).filter(Boolean).join('\n');
     } catch { /* the catalogue is a nice-to-have; the stylist can still invent pieces */ }
 
+    let makeupIdeas = [];
+    if (makeup) {
+        try {
+            await loadMakeup();
+            makeupIdeas = relevantLooks(`${desc} ${occasion} ${makeup.text}`, 6).map(l => `- ${l.title}: ${truncate(l.text, 160)}`);
+        } catch { /* optional, like the catalogue */ }
+    }
+
     const lines = [
         count > 1 ? `Build ${count} different outfits for ${name} for: ${occasion}.` : `Build an outfit for ${name} for: ${occasion}.`,
         '',
@@ -457,6 +466,7 @@ export async function requestLooks({ occasion, count = 3, fixed = null, includeS
         '- Each outfit is either separates (top + bottom) or a dress / one-piece. Shoes are expected. Outerwear is optional; 0-3 accessories.',
         `- Fit the occasion, venue, likely weather and ${name}'s personality, body and style. Clothes go in the outfit fields; hair belongs elsewhere.`,
         ...(makeup ? [`- Also suggest makeup that suits the outfit and occasion in "makeup" (one short sentence, in ${name}'s style; their usual makeup: ${truncate(makeup.text || 'not set', 160)}).`] : []),
+        ...(makeupIdeas.length ? ['- Makeup looks you can borrow from or adapt:', ...makeupIdeas.map(l => `  ${l}`)] : []),
         count > 1 ? '- Make the outfits clearly different from each other.' : '- Make it look put together.',
         '- Give each a short name (2-4 words) and one sentence on why it suits the occasion.',
         '',
@@ -563,3 +573,45 @@ export function lookText(look) {
     return composeText(normalizePieces(look.pieces));
 }
 
+
+// ---------- makeup picker ----------
+
+/**
+ * Ask the stylist which makeup look suits the persona, their current outfit and the scene.
+ * @param {{id: string, title: string, text: string}[]} looks
+ * @returns {Promise<{id: string, why: string}>}
+ */
+export async function chooseMakeup(looks) {
+    const name = userName();
+    const w = getWardrobe();
+    const outfit = w.outfits.find(o => o.id === w.active);
+    const lines = [
+        `Pick the makeup look that best suits ${name} right now.`,
+        '',
+        `${name}'s description:`,
+        '"""',
+        truncate(personaDescription() || '(no description)', 2000),
+        '"""',
+        '',
+        `Wearing now: ${outfit?.text.trim() ? truncate(outfit.text, 300) : w.active === NONE_ID ? 'nothing (undressed)' : 'not described'}`,
+    ];
+    const hair = w.extras.find(e => e.id === 'hair');
+    if (hair?.text.trim()) lines.push(`Hair: ${truncate(hair.text, 160)}`);
+    const story = recentStory(3);
+    if (story.length) lines.push('', 'What is happening in the story:', ...story);
+    lines.push(
+        '',
+        'Makeup looks:',
+        ...looks.map(l => `- ${l.id}: ${l.title}. ${truncate(l.text, 150)}`),
+        '',
+        `Choose the one that fits ${name}'s style, the outfit and the moment best.`,
+        'Reply with only this JSON:',
+        '{"id":"<one of the ids above>","why":"one short sentence"}',
+    );
+    const system = 'You are a makeup artist for an interactive story. You reply with JSON only.';
+    const data = parseJsonReply(await ask(system, lines.join('\n'), { responseLength: 400 }));
+    const id = typeof data?.id === 'string' ? data.id.trim() : '';
+    const hit = looks.find(l => l.id === id) || looks.find(l => l.title.toLowerCase() === id.toLowerCase());
+    if (!hit) throw new Error('the stylist did not pick one of the looks');
+    return { id: hit.id, why: cleanValue(data?.why) };
+}

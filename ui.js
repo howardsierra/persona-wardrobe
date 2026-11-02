@@ -5,7 +5,7 @@ import { ctx, getSettings, getWardrobe, getOwnerLabel, uniqueId, validIcon, save
 import { updatePromptInjection } from './prompts.js';
 import { esc, icon, snippet } from './html.js';
 import { status, styleWardrobe, undoStyling, canUndo, personaDescription, descriptionChangedSinceStyling, listProfiles, pendingLooks } from './stylist.js';
-import { openBuilder, openLooks, refreshPopups } from './builder.js';
+import { openBuilder, openLooks, openMakeupPicker, refreshPopups } from './builder.js';
 import { SIDECAR_PROVIDERS, getSidecar, setSidecar, sidecarModels, testSidecar } from './sidecar.js';
 
 const PANEL_ID = 'persona_wardrobe_settings';
@@ -531,6 +531,7 @@ function renderExtras() {
             <div class="pw-card-body">
                 ${picker}
                 <textarea class="text_pole pw-text" rows="2" placeholder="${esc(placeholder)}" aria-label="${esc(e.label || 'Detail')}">${esc(e.text)}</textarea>
+                ${e.id === 'makeup' ? `<div class="pw-card-actions"><button type="button" class="pw-btn pw-btn-ghost" data-action="browse-makeup">${icon('palette')}<span>Browse looks</span></button></div>` : ''}
             </div>
         </div>`;
     }).join('');
@@ -583,6 +584,9 @@ function bindExtras() {
                 iconPickerFor = null;
                 changed();
                 break;
+            case 'browse-makeup':
+                openMakeupPicker();
+                return;
             case 'delete':
                 if (e.text.trim() && !confirm(`Remove "${e.label}"?`)) return;
                 w.extras.splice(w.extras.indexOf(e), 1);

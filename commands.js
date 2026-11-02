@@ -4,7 +4,8 @@ import { LOG, NONE_ID, DEFAULT_EXTRAS } from './config.js';
 import { ctx, getWardrobe, findOutfit, save } from './state.js';
 import { describeClothing, updatePromptInjection } from './prompts.js';
 import { styleWardrobe, undoStyling, planOutfits } from './stylist.js';
-import { openLooks } from './builder.js';
+import { openLooks, openMakeupPicker } from './builder.js';
+import { loadMakeup, findLook, randomLook, lookText as makeupText } from './makeup.js';
 
 let onChange = () => {};
 
@@ -88,6 +89,30 @@ async function planCommand(_args, value) {
     return ok ? occasion : '';
 }
 
+// /makeup-look [title|random]  - wear a makeup look by name; no name opens the picker.
+async function makeupLookCommand(_args, value) {
+    const q = String(value ?? '').trim();
+    if (!q) {
+        openMakeupPicker();
+        return '';
+    }
+    await loadMakeup();
+    const look = q.toLowerCase() === 'random' ? randomLook() : findLook(q);
+    if (!look) {
+        globalThis.toastr?.warning?.(`No makeup look called "${q}".`);
+        return '';
+    }
+    const w = getWardrobe();
+    let e = w.extras.find(x => x.id === 'makeup');
+    if (!e) {
+        e = { id: 'makeup', label: 'Makeup', icon: 'paintbrush', text: '' };
+        w.extras.push(e);
+    }
+    e.text = makeupText(look);
+    commit();
+    return e.text;
+}
+
 function registerSlash(c) {
     const outfitHelp = 'Switch your persona\'s current outfit by name (or "none"). With no name, returns what you\'re wearing.';
     const extraHelp = (label) => `Set your persona's ${label.toLowerCase()} (or "none" to clear). With no text, returns the current description.`;
@@ -126,6 +151,13 @@ function registerSlash(c) {
             helpString: 'Dress your persona from their description. "fill" (default) fills empty slots, "all" restyles everything, "undo" reverts the last styling.',
         }));
         SlashCommandParser.addCommandObject(SlashCommand.fromProps({
+            name: 'makeup-look',
+            callback: makeupLookCommand,
+            returns: 'the makeup description',
+            unnamedArgumentList: arg('look name, or "random"'),
+            helpString: 'Wear one of the makeup looks by name, or "random". With no name, opens the makeup picker.',
+        }));
+        SlashCommandParser.addCommandObject(SlashCommand.fromProps({
             name: 'plan-outfit',
             callback: planCommand,
             returns: 'the occasion',
@@ -142,6 +174,7 @@ function registerSlash(c) {
             }));
         }
     } else if (typeof c.registerSlashCommand === 'function') {
+        c.registerSlashCommand('makeup-look', makeupLookCommand, [], 'Wear a makeup look by name, or "random".', true, true);
         c.registerSlashCommand('plan-outfit', planCommand, [], 'Build outfit ideas for an occasion.', true, true);
         c.registerSlashCommand('stylist', stylistCommand, [], 'Dress your persona from their description: fill, all or undo.', true, true);
         for (const e of DEFAULT_EXTRAS) c.registerSlashCommand(e.id, extraCommand(e.id), [], extraHelp(e.label), true, true);

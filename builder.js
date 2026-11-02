@@ -8,10 +8,12 @@ import {
     SLOTS, MODES, OPTIONAL_SLOTS, CATALOG_CREDIT, emptyPieces, normalizePieces, composeText, hasAnyPiece,
     loadCatalog, catalogLoaded, filterPieces, randomPiece, guessGender,
 } from './catalog.js';
-import { status, requestLooks, pendingLooks, planOutfits, wearLook, dismissLooks, addOutfitFromPieces, lookText, personaDescription } from './stylist.js';
+import { status, requestLooks, pendingLooks, planOutfits, wearLook, dismissLooks, addOutfitFromPieces, lookText, personaDescription, chooseMakeup } from './stylist.js';
+import { MAKEUP_CREDIT, loadMakeup, makeupLoaded, filterLooks, allLooks, randomLook, lookText as makeupText } from './makeup.js';
 
 const BUILDER_ID = 'persona_wardrobe_builder';
 const LOOKS_ID = 'persona_wardrobe_looks';
+const MAKEUP_ID = 'persona_wardrobe_makeup';
 const PAGE = 60;
 const MAX_ACCESSORIES = 8;
 const $id = (id) => document.getElementById(id);
@@ -566,4 +568,168 @@ function renderLooks() {
 // Called whenever wardrobe state changes, so open popups stay current.
 export function refreshPopups() {
     renderLooks();
+    renderMakeup();
+}
+
+// ---------- makeup picker ----------
+
+/** @type {null | {frame: any, section: string, query: string, pickedId: string, note: string, busy: boolean}} */
+let mk = null;
+
+function makeupDetail(create = false) {
+    const w = getWardrobe();
+    let e = w.extras.find(x => x.id === 'makeup');
+    if (!e && create) {
+        e = { id: 'makeup', label: 'Makeup', icon: 'paintbrush', text: '' };
+        w.extras.push(e);
+    }
+    return e;
+}
+
+export function openMakeupPicker() {
+    mk = { section: '', query: '', pickedId: '', note: '', busy: false };
+    const state = mk;
+    mk.frame = openFrame(MAKEUP_ID, {
+        title: 'Makeup looks', sub: `For ${userName()}`, iconName: 'paintbrush', wide: true,
+        onClose: () => { if (mk === state) mk = null; },
+    });
+    const { body, foot } = mk.frame;
+    body.innerHTML = `
+        <div class="pw-b-preview pw-m-current">
+            <div class="pw-now-kicker">Current makeup</div>
+            <div data-m-current></div>
+        </div>
+        <label class="pw-b-search pw-m-search">${icon('magnifying-glass')}<input type="search" class="text_pole" data-m-query placeholder="Search looks, e.g. smoky, gold, natural" aria-label="Search makeup looks" /></label>
+        <div class="pw-m-sections" data-m-sections role="tablist" aria-label="Makeup styles"></div>
+        <div class="pw-m-note" data-m-note hidden></div>
+        <div class="pw-m-list" data-m-list></div>
+        <a class="pw-credit" href="${MAKEUP_CREDIT.url}" target="_blank" rel="noopener">${esc(MAKEUP_CREDIT.text)} ${icon('arrow-up-right-from-square')}</a>`;
+    foot.innerHTML = `
+        <button type="button" class="pw-btn pw-btn-ghost" data-m-ai title="Let the stylist pick the look that suits your outfit and the scene"><span class="pw-btn-icon">${icon('wand-magic-sparkles')}</span><span>Match my outfit</span></button>
+        <button type="button" class="pw-icon-btn" data-m-random title="Surprise me">${icon('shuffle')}</button>
+        <span class="pw-spacer"></span>
+        <button type="button" class="pw-btn pw-btn-ghost" data-m-clear title="Remove the makeup description">${icon('eraser')}<span>No makeup</span></button>`;
+
+    body.querySelector('[data-m-query]').addEventListener('input', e => { mk.query = e.target.value; renderMakeup(); });
+    body.addEventListener('click', e => {
+        const sec = e.target.closest('[data-m-section]');
+        if (sec) {
+            mk.section = sec.dataset.mSection;
+            renderMakeup();
+            return;
+        }
+        const use = e.target.closest('[data-m-use]');
+        if (use) useMakeup(use.dataset.mUse);
+    });
+    foot.querySelector('[data-m-random]').addEventListener('click', () => {
+        const look = randomLook(mk.section);
+        if (!look) return;
+        showPicked(look.id, 'Surprise pick. Tap "Use this" to wear it.');
+    });
+    foot.querySelector('[data-m-ai]').addEventListener('click', matchMakeup);
+    foot.querySelector('[data-m-clear]').addEventListener('click', () => {
+        const e = makeupDetail();
+        if (!e) return;
+        e.text = '';
+        commit();
+        toast('info', `${userName()} is wearing no makeup now.`);
+        closeFrame(MAKEUP_ID);
+    });
+
+    renderMakeup();
+    if (!makeupLoaded()) {
+        body.querySelector('[data-m-list]').innerHTML = `<div class="pw-hint">${icon('spinner', 'fa-spin')} Loading looks…</div>`;
+        loadMakeup().then(() => renderMakeup()).catch(() => {
+            body.querySelector('[data-m-list]').innerHTML = '<div class="pw-hint pw-hint-accent">Couldn\'t load the makeup looks.</div>';
+        });
+    }
+    body.querySelector('[data-m-query]').focus({ preventScroll: true });
+}
+
+function renderMakeup() {
+    if (!mk) return;
+    const { body, foot } = mk.frame;
+    const current = makeupDetail()?.text.trim() || '';
+    const cur = body.querySelector('[data-m-current]');
+    cur.textContent = current || 'None set';
+    cur.classList.toggle('pw-muted', !current);
+
+    foot.querySelector('[data-m-ai]').disabled = mk.busy || !makeupLoaded();
+    foot.querySelector('[data-m-ai] .pw-btn-icon').innerHTML = mk.busy ? icon('spinner', 'fa-spin') : icon('wand-magic-sparkles');
+    foot.querySelector('[data-m-clear]').disabled = !current;
+
+    // A pick's reason shows on its card; this banner is for progress and errors.
+    const banner = mk.pickedId && !mk.busy ? '' : mk.note;
+    const note = body.querySelector('[data-m-note]');
+    note.hidden = !banner;
+    note.innerHTML = banner ? `${icon(mk.busy ? 'spinner' : 'lightbulb', mk.busy ? 'fa-spin' : '')}<span>${esc(banner)}</span>` : '';
+
+    if (!makeupLoaded()) return;
+    loadMakeup().then(d => {
+        if (!mk) return;
+        body.querySelector('[data-m-sections]').innerHTML = [{ id: '', name: 'All' }, ...d.sections].map(sec =>
+            `<button type="button" class="pw-m-chip${mk.section === sec.id ? ' is-active' : ''}" data-m-section="${esc(sec.id)}" role="tab" aria-selected="${mk.section === sec.id}"${sec.description ? ` title="${esc(sec.description)}"` : ''}>${esc(sec.name)}</button>`).join('');
+        const names = Object.fromEntries(d.sections.map(sec => [sec.id, sec.name]));
+        const looks = filterLooks({ section: mk.section, query: mk.query });
+        // Keep a picked look visible even when the filters would hide it.
+        const picked = mk.pickedId && !looks.some(l => l.id === mk.pickedId) ? allLooks().find(l => l.id === mk.pickedId) : null;
+        const list = picked ? [picked, ...looks] : looks;
+        body.querySelector('[data-m-list]').innerHTML = list.length ? list.map(l => {
+            const text = makeupText(l);
+            const wearing = current === text;
+            return `
+            <div class="pw-m-look${wearing ? ' is-current' : ''}${mk.pickedId === l.id ? ' is-picked' : ''}" data-m-id="${esc(l.id)}">
+                <div class="pw-m-look-head"><b>${esc(l.title)}</b><span class="pw-m-tag">${esc(names[l.section] || '')}</span></div>
+                <div class="pw-m-look-text">${esc(text)}</div>
+                ${mk.pickedId === l.id && mk.note ? `<div class="pw-look-why">${icon('lightbulb')}<span>${esc(mk.note)}</span></div>` : ''}
+                <button type="button" class="pw-btn${mk.pickedId === l.id ? ' is-primary' : ' pw-btn-ghost'}" data-m-use="${esc(l.id)}" ${wearing ? 'disabled' : ''}>
+                    ${icon(wearing ? 'check' : 'paintbrush')}<span>${wearing ? 'Wearing' : 'Use this'}</span>
+                </button>
+            </div>`;
+        }).join('') : '<div class="pw-hint">No looks match. Try another word or style.</div>';
+    });
+}
+
+function showPicked(id, note) {
+    mk.pickedId = id;
+    mk.note = note;
+    renderMakeup();
+    // Wait for the list to render, then bring the pick into view.
+    setTimeout(() => mk?.frame.body.querySelector(`.pw-m-look[data-m-id="${CSS.escape(id)}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 50);
+}
+
+async function matchMakeup() {
+    if (!mk || mk.busy) return;
+    const state = mk;
+    state.busy = true;
+    state.pickedId = '';
+    state.note = 'The stylist is choosing a look…';
+    renderMakeup();
+    try {
+        await loadMakeup();
+        // Respect the current filters when they still leave a real choice.
+        const filtered = filterLooks({ section: state.section, query: state.query });
+        const pick = await chooseMakeup(filtered.length >= 3 ? filtered : allLooks());
+        if (mk !== state) return;
+        const look = allLooks().find(l => l.id === pick.id);
+        state.busy = false;
+        showPicked(pick.id, `Stylist's pick${pick.why ? `: ${pick.why}` : ` for ${userName()}.`}`);
+    } catch (e) {
+        console.error(LOG, 'makeup match failed', e);
+        if (mk === state) {
+            state.busy = false;
+            state.pickedId = '';
+            state.note = `The stylist couldn't choose: ${e?.message || e}`;
+            renderMakeup();
+        }
+    }
+}
+
+function useMakeup(id) {
+    const look = allLooks().find(l => l.id === id);
+    if (!look) return;
+    makeupDetail(true).text = makeupText(look);
+    commit();
+    toast('success', `${userName()} is wearing ${look.title} makeup.`);
+    closeFrame(MAKEUP_ID);
 }
