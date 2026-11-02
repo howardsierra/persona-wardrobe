@@ -4,8 +4,8 @@ import { LOG, NONE_ID, DEFAULT_EXTRAS } from './config.js';
 import { ctx, getWardrobe, findOutfit, save } from './state.js';
 import { describeClothing, updatePromptInjection } from './prompts.js';
 import { styleWardrobe, undoStyling, planOutfits } from './stylist.js';
-import { openLooks, openPicker } from './builder.js';
-import { makeupLib, hairLib, nailsLib, sentence, KEEPERS } from './library.js';
+import { openLooks, openPicker, openHairColour } from './builder.js';
+import { makeupLib, hairLib, nailsLib, sentence, KEEPERS, recolourHair } from './library.js';
 
 let onChange = () => {};
 
@@ -124,6 +124,25 @@ function lookCommand(kind) {
     };
 }
 
+// /hair-colour [colour]  - recolour the current hair, keeping the style; no colour opens the colour picker.
+function hairColourCommand(_args, value) {
+    const colour = String(value ?? '').trim();
+    if (!colour) {
+        openHairColour();
+        return '';
+    }
+    const w = getWardrobe();
+    let e = w.extras.find(x => x.id === 'hair');
+    if (!e) {
+        e = { id: 'hair', label: 'Hair', icon: 'scissors', text: '' };
+        w.extras.push(e);
+    }
+    e.text = recolourHair(e.text, colour.toLowerCase() === 'none' ? '' : colour);
+    w.hairColor = colour.toLowerCase() === 'none' ? '' : colour;
+    commit();
+    return e.text;
+}
+
 function registerSlash(c) {
     const outfitHelp = 'Switch your persona\'s current outfit by name (or "none"). With no name, returns what you\'re wearing.';
     const extraHelp = (label) => `Set your persona's ${label.toLowerCase()} (or "none" to clear). With no text, returns the current description.`;
@@ -160,6 +179,14 @@ function registerSlash(c) {
             returns: 'description of the current clothing',
             unnamedArgumentList: arg('fill | all | undo', ['fill', 'all', 'undo']),
             helpString: 'Dress your persona from their description. "fill" (default) fills empty slots, "all" restyles everything, "undo" reverts the last styling.',
+        }));
+        SlashCommandParser.addCommandObject(SlashCommand.fromProps({
+            name: 'hair-colour',
+            aliases: ['hair-color'],
+            callback: hairColourCommand,
+            returns: 'the hair description',
+            unnamedArgumentList: arg('a colour, e.g. "copper" or "jet black with honey highlights"'),
+            helpString: 'Recolour your hair, keeping the style. With no colour, opens the hair colour picker.',
         }));
         SlashCommandParser.addCommandObject(SlashCommand.fromProps({
             name: 'nail-art',
@@ -199,6 +226,7 @@ function registerSlash(c) {
             }));
         }
     } else if (typeof c.registerSlashCommand === 'function') {
+        c.registerSlashCommand('hair-colour', hairColourCommand, ['hair-color'], 'Recolour your hair, keeping the style.', true, true);
         c.registerSlashCommand('nail-art', lookCommand('nails'), [], 'Paint your nails by design name, or "random".', true, true);
         c.registerSlashCommand('hairstyle', lookCommand('hair'), [], 'Style your hair by hairstyle name, or "random".', true, true);
         c.registerSlashCommand('makeup-look', lookCommand('makeup'), [], 'Wear a makeup look by name, or "random".', true, true);

@@ -9,7 +9,7 @@ import {
     loadCatalog, catalogLoaded, filterPieces, randomPiece, guessGender,
 } from './catalog.js';
 import { status, requestLooks, pendingLooks, planOutfits, wearLook, dismissLooks, addOutfitFromPieces, lookText, personaDescription, chooseLook } from './stylist.js';
-import { makeupLib, hairLib, nailsLib, sentence, KEEPERS } from './library.js';
+import { makeupLib, hairLib, nailsLib, sentence, KEEPERS, HAIR_COLOURS, HAIR_EFFECTS, nearestHairColour, hairColourHex, hairSwatchName, recolourHair, hairColourOf } from './library.js';
 
 const BUILDER_ID = 'persona_wardrobe_builder';
 const LOOKS_ID = 'persona_wardrobe_looks';
@@ -679,13 +679,17 @@ export function openPicker(kind) {
         ${cfg.keep ? `
         <div class="pw-m-keep">
             ${cfg.keep.fields.map(f => `
-            <div class="pw-field">
+            <div class="pw-field${f.palette ? ' pw-m-keep-wide' : ''}">
                 <label for="pw_m_${f.key}">${esc(f.label)}</label>
                 ${f.type === 'select'
                     ? `<select id="pw_m_${f.key}" class="text_pole" data-m-keep="${f.key}"><option value="">Not set</option>${f.options.map(([v, label]) => `<option value="${esc(v)}">${esc(label)}</option>`).join('')}</select>`
                     : `<input id="pw_m_${f.key}" type="text" class="text_pole" data-m-keep="${f.key}" maxlength="60" placeholder="${esc(f.placeholder || '')}" />`}
+                ${f.palette === 'hair' ? hairPaletteHtml() : ''}
             </div>`).join('')}
-            <div class="pw-hint pw-m-keep-hint">${esc(cfg.keep.hint)}</div>
+            <div class="pw-m-keep-hint">
+                <span class="pw-hint">${esc(cfg.keep.hint)}</span>
+                ${cfg.keep.fields.some(f => f.palette === 'hair') ? `<button type="button" class="pw-btn pw-btn-ghost" data-m-recolour title="Change the colour of the hair you have now, keeping the style">${icon('droplet')}<span>Recolour current hair</span></button>` : ''}
+            </div>
         </div>` : ''}
         <label class="pw-b-search pw-m-search">${icon('magnifying-glass')}<input type="search" class="text_pole" data-m-query placeholder="${esc(cfg.search)}" aria-label="Search" /></label>
         <div class="pw-b-filters pw-m-filters" data-m-filters></div>
@@ -704,8 +708,29 @@ export function openPicker(kind) {
         el.value = pk.keep[el.dataset.mKeep] || '';
         el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', e => {
             pk.keep[el.dataset.mKeep] = e.target.value.trim();
+            const palette = el.parentElement.querySelector('[data-hc]');
+            if (palette) syncPalette(palette, pk.keep[el.dataset.mKeep]);
             renderPicker();
         });
+    });
+    body.querySelectorAll('[data-hc]').forEach(palette => {
+        const input = palette.parentElement.querySelector('[data-m-keep]');
+        const key = input.dataset.mKeep;
+        syncPalette(palette, pk.keep[key]);
+        bindPalette(palette, () => pk.keep[key] || '', value => {
+            pk.keep[key] = value;
+            input.value = value;
+            syncPalette(palette, value);
+            renderPicker();
+        });
+    });
+    body.querySelector('[data-m-recolour]')?.addEventListener('click', () => {
+        const e = pickerDetail(cfg, true);
+        e.text = recolourHair(e.text, pk.keep.colour);
+        cfg.keep.store(getWardrobe(), pk.keep);
+        commit();
+        toast('success', pk.keep.colour ? `${userName()}'s hair is now ${pk.keep.colour}.` : 'Hair colour removed from the description.');
+        renderPicker();
     });
     body.querySelector('[data-m-query]').addEventListener('input', e => { pk.query = e.target.value; renderPicker(); });
     body.addEventListener('change', e => {
@@ -865,4 +890,124 @@ function usePick(id) {
     commit();
     toast('success', cfg.used(userName(), look));
     closeFrame(PICKER_ID);
+}
+
+// ---------- hair colour picker ----------
+
+const HAIR_COLOUR_ID = 'persona_wardrobe_hair_colour';
+
+/** "jet black with honey highlights" -> ["jet black", "with honey highlights"] */
+function splitColour(colour) {
+    const t = String(colour || '').trim();
+    const i = t.search(/(^|\s+)with\b/i);
+    return i >= 0 ? [t.slice(0, i).trim(), t.slice(i).trim()] : [t, ''];
+}
+
+function hairPaletteHtml() {
+    // The colour wheel sits at the end of the first (natural) row.
+    const wheel = `<label class="pw-hc-swatch pw-hc-wheel" title="Any colour: pick it and it's named for you">${icon('eye-dropper')}<input type="color" data-hc-wheel value="#3b2418" aria-label="Custom colour" /></label>`;
+    return `
+    <div class="pw-hc" data-hc>
+        ${HAIR_COLOURS.map((g, i) => `
+        <div class="pw-hc-group">
+            <div class="pw-hc-label">${esc(g.group)}</div>
+            <div class="pw-hc-swatches">
+                ${g.items.map(([name, hex]) => `<button type="button" class="pw-hc-swatch" data-hc-name="${esc(name)}" title="${esc(nice(name))}" aria-label="${esc(name)}" style="--hc: ${hex}"></button>`).join('')}
+                ${i === 0 ? wheel : ''}
+            </div>
+        </div>`).join('')}
+        <div class="pw-hc-group">
+            <div class="pw-hc-label">Effects</div>
+            <div class="pw-hc-effects">
+                ${HAIR_EFFECTS.map(([value, label]) => `<button type="button" class="pw-m-chip" data-hc-effect="${esc(value)}">${esc(label)}</button>`).join('')}
+            </div>
+        </div>
+    </div>`;
+}
+
+function syncPalette(root, colour) {
+    const [base, effect] = splitColour(colour);
+    const swatch = hairSwatchName(base);
+    root.querySelectorAll('[data-hc-name]').forEach(b => b.classList.toggle('is-active', b.dataset.hcName === swatch));
+    root.querySelectorAll('[data-hc-effect]').forEach(b => b.classList.toggle('is-active', b.dataset.hcEffect === effect.toLowerCase()));
+    const hex = hairColourHex(base);
+    const wheel = root.querySelector('[data-hc-wheel]');
+    if (hex && wheel) wheel.value = hex;
+}
+
+/** Swatches set the base colour, effects toggle, the wheel picks the nearest named colour. */
+function bindPalette(root, get, set) {
+    root.addEventListener('click', e => {
+        const sw = e.target.closest('[data-hc-name]');
+        if (sw) {
+            const [, effect] = splitColour(get());
+            set([sw.dataset.hcName, effect].filter(Boolean).join(' '));
+            return;
+        }
+        const ef = e.target.closest('[data-hc-effect]');
+        if (ef) {
+            const [base, effect] = splitColour(get());
+            const next = effect.toLowerCase() === ef.dataset.hcEffect ? '' : ef.dataset.hcEffect;
+            set([base, next].filter(Boolean).join(' '));
+        }
+    });
+    root.querySelector('[data-hc-wheel]')?.addEventListener('input', e => {
+        const name = nearestHairColour(e.target.value);
+        if (!name) return;
+        const [, effect] = splitColour(get());
+        set([name, effect].filter(Boolean).join(' '));
+    });
+}
+
+/** Recolour the current hair from the Hair card, keeping the style. */
+export function openHairColour() {
+    const w = getWardrobe();
+    const hair = w.extras.find(x => x.id === 'hair');
+    const before = hair?.text.trim() || '';
+    let colour = w.hairColor ?? hairColourOf(before);
+    const frame = openFrame(HAIR_COLOUR_ID, { title: 'Hair colour', sub: `For ${userName()}`, iconName: 'palette' });
+    const { body, foot } = frame;
+    body.innerHTML = `
+        <div class="pw-b-preview pw-m-current">
+            <div class="pw-now-kicker">Current hair</div>
+            <div class="${before ? '' : 'pw-muted'}">${esc(before || 'None set')}</div>
+        </div>
+        <div class="pw-field pw-hc-field">
+            <label for="pw_hc_text">Colour</label>
+            <input id="pw_hc_text" type="text" class="text_pole" data-hc-text maxlength="60" placeholder="e.g. jet black, copper, honey blonde with dark roots" />
+            ${hairPaletteHtml()}
+        </div>
+        <div class="pw-b-preview pw-hc-preview">
+            <div class="pw-now-kicker">New look</div>
+            <div data-hc-preview></div>
+        </div>`;
+    foot.innerHTML = `
+        <span class="pw-spacer"></span>
+        <button type="button" class="pw-btn pw-btn-ghost" data-hc-cancel>${icon('xmark')}<span>Cancel</span></button>
+        <button type="button" class="pw-btn is-primary" data-hc-apply>${icon('droplet')}<span>Apply colour</span></button>`;
+
+    const input = body.querySelector('[data-hc-text]');
+    const palette = body.querySelector('[data-hc]');
+    const preview = () => {
+        body.querySelector('[data-hc-preview]').textContent = recolourHair(before, colour) || 'Pick a colour.';
+        syncPalette(palette, colour);
+    };
+    input.value = colour;
+    input.addEventListener('input', e => { colour = e.target.value.trim(); preview(); });
+    bindPalette(palette, () => colour, value => { colour = value; input.value = value; preview(); });
+    foot.querySelector('[data-hc-cancel]').addEventListener('click', () => frame.close());
+    foot.querySelector('[data-hc-apply]').addEventListener('click', () => {
+        const w2 = getWardrobe();
+        let e = w2.extras.find(x => x.id === 'hair');
+        if (!e) {
+            e = { id: 'hair', label: 'Hair', icon: 'scissors', text: '' };
+            w2.extras.push(e);
+        }
+        e.text = recolourHair(e.text, colour);
+        w2.hairColor = colour;
+        commit();
+        toast('success', colour ? `${userName()}'s hair is now ${colour}.` : 'Hair colour removed from the description.');
+        frame.close();
+    });
+    preview();
 }

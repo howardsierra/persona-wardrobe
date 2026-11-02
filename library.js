@@ -1,6 +1,7 @@
 // Persona Wardrobe - looks libraries for the makeup, hair and nail pickers.
 // Makeup looks and most hairstyles come from CLOVER OOC by aceenvw (https://github.com/aceeenvw/clover-ooc),
-// used with credit. The Black hairstyles (data/hair-black.json) and nail art (data/nails.json) are Persona Wardrobe's own.
+// used with credit. The Black hairstyles (data/hair-black.json), makeup for Black skin tones (data/makeup-black.json)
+// and nail art (data/nails.json) are Persona Wardrobe's own.
 
 import { LOG } from './config.js';
 
@@ -86,8 +87,11 @@ function createLibrary({ name, files, credit }) {
 
 export const makeupLib = createLibrary({
     name: 'makeup looks',
-    files: [{ file: 'makeup.json', group: 'CLOVER OOC' }],
-    credit: { text: `Makeup looks ${CLOVER.text}`, url: CLOVER.url },
+    files: [
+        { file: 'makeup-black.json', group: 'Black skin tones' },
+        { file: 'makeup.json', group: 'CLOVER OOC' },
+    ],
+    credit: { text: `CLOVER looks ${CLOVER.text}`, url: CLOVER.url },
 });
 
 export const hairLib = createLibrary({
@@ -142,11 +146,126 @@ export function hairColourOf(text) {
     return colours(m ? m[1] : t.split(/[,.]/)[0]) || colours(t.split('.')[0]);
 }
 
+/** "black" -> "black hair"; "jet black with honey highlights" -> "jet black hair with honey highlights". */
+function colourPhrase(colour) {
+    const c = String(colour || '').trim();
+    if (!c) return '';
+    if (/^with\b/i.test(c)) return `hair ${c}`;
+    const i = c.search(/\s+with\b/i);
+    return i > 0 ? `${c.slice(0, i)} hair${c.slice(i)}` : `${c} hair`;
+}
+
 /** "black" + "ultra-blunt micro bob, heavy fringe" -> "Black hair, ultra-blunt micro bob, heavy fringe." */
 export function hairText(colour, look) {
     const style = String(look?.text || '').trim();
-    const c = String(colour || '').trim();
-    return sentence(c ? `${c} hair, ${style}` : style);
+    const phrase = colourPhrase(colour);
+    return sentence(phrase ? `${phrase}, ${style}` : style);
+}
+
+const EFFECT_AFTER_HAIR = /^\s+with\s+(?:an?\s+)?[a-zé\s-]*?(?:roots|highlights|balayage|ombr[eé][^,.]*|skunk stripe|money pieces|colou?r underneath|streaks)\b/i;
+const isColourWord = w => !!w && w.split('-').every(p => COLOUR_WORDS.has(p));
+
+/** Change the colour in a hair description and keep the style. */
+export function recolourHair(text, colour) {
+    const t = String(text || '').trim().replace(/\.$/, '');
+    const phrase = colourPhrase(colour);
+    if (!t) return sentence(phrase);
+
+    const hair = t.match(/\bhair\b/i);
+    if (hair) {
+        // The colour is the run of colour words just before "hair"; an effect may follow it.
+        let start = hair.index;
+        const before = t.slice(0, hair.index);
+        const tokens = [...before.matchAll(/[a-zé-]+/gi)];
+        for (let i = tokens.length - 1; i >= 0; i--) {
+            const tok = tokens[i];
+            const gap = before.slice(tok.index + tok[0].length, start);
+            if (!isColourWord(tok[0].toLowerCase()) || /[^\s]/.test(gap)) break;
+            start = tok.index;
+        }
+        let end = hair.index + hair[0].length;
+        const effect = t.slice(end).match(EFFECT_AFTER_HAIR);
+        if (effect) end += effect[0].length;
+        const out = t.slice(0, start) + (phrase || 'hair') + t.slice(end);
+        // Clearing the colour from "<colour> hair, <style>" leaves just the style.
+        return sentence(phrase ? out : out.replace(/^hair,\s*/i, ''));
+    }
+    // No "hair" word ("Jet-black box braids"): swap the colour words, or lead with the new colour.
+    const old = hairColourOf(t);
+    if (old) {
+        const re = new RegExp(old.split(' ').map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('[\\s,]+'), 'i');
+        if (re.test(t)) return sentence(t.replace(re, String(colour || '').trim()).replace(/^\s+/, ''));
+    }
+    return sentence(phrase ? `${phrase}, ${t.charAt(0).toLowerCase()}${t.slice(1)}` : t);
+}
+
+// ---------- hair colour palette ----------
+
+/** Named hair colours with a swatch colour, grouped for the colour picker. */
+export const HAIR_COLOURS = [
+    { group: 'Natural', items: [
+        ['jet black', '#0b0b0d'], ['soft black', '#1f1b1a'], ['blue-black', '#141a2b'], ['dark brown', '#3b2418'],
+        ['chocolate brown', '#4e2e1e'], ['chestnut brown', '#6d3b22'], ['medium brown', '#7a5236'], ['light brown', '#a07450'],
+        ['auburn', '#7f2e1c'], ['copper', '#b5562a'], ['ginger', '#c9682d'], ['strawberry blonde', '#d99a6c'],
+        ['honey blonde', '#c9964f'], ['golden blonde', '#ddb46b'], ['ash blonde', '#bfae8c'], ['platinum blonde', '#e8e0cc'],
+        ['salt-and-pepper', '#7d7a77'], ['silver', '#bfc3c7'], ['white', '#f2f0ea'],
+    ] },
+    { group: 'Fashion', items: [
+        ['burgundy', '#5e1224'], ['cherry red', '#a3122a'], ['copper red', '#c1441d'], ['orange', '#e2701f'],
+        ['hot pink', '#e2378b'], ['pastel pink', '#f2a9c7'], ['lavender', '#b59bd9'], ['purple', '#6b2fa3'],
+        ['electric blue', '#1f5be0'], ['pastel blue', '#9cc4ec'], ['teal', '#14837f'], ['emerald green', '#167a46'],
+        ['mint green', '#9fdcc0'],
+    ] },
+];
+
+/** Effects added to a base colour. */
+export const HAIR_EFFECTS = [
+    ['with dark roots', 'Dark roots'], ['with honey highlights', 'Honey highlights'], ['with blonde highlights', 'Blonde highlights'],
+    ['with caramel balayage', 'Caramel balayage'], ['with an ombré to honey blonde', 'Ombré'], ['with a blonde skunk stripe', 'Skunk stripe'],
+    ['with face-framing money pieces', 'Money pieces'], ['with peekaboo colour underneath', 'Peekaboo colour'], ['with grey streaks', 'Grey streaks'],
+];
+
+function hexToRgb(hex) {
+    const m = String(hex).replace('#', '').match(/^([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
+    return m ? [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)] : null;
+}
+
+/** The named hair colour closest to a hex colour from the colour wheel. */
+export function nearestHairColour(hex) {
+    const rgb = hexToRgb(hex);
+    if (!rgb) return '';
+    let best = '';
+    let bestD = Infinity;
+    for (const { items } of HAIR_COLOURS) {
+        for (const [name, h] of items) {
+            const c = hexToRgb(h);
+            // Weighted distance: closer to how the eye judges colour than plain RGB.
+            const d = 2 * (rgb[0] - c[0]) ** 2 + 4 * (rgb[1] - c[1]) ** 2 + 3 * (rgb[2] - c[2]) ** 2;
+            if (d < bestD) { bestD = d; best = name; }
+        }
+    }
+    return best;
+}
+
+// Plain names people type, mapped to the swatch they mean.
+const COLOUR_ALIASES = {
+    black: 'jet black', brown: 'medium brown', brunette: 'dark brown', blonde: 'golden blonde', blond: 'golden blonde',
+    red: 'copper red', grey: 'silver', gray: 'silver', pink: 'hot pink', blue: 'electric blue', green: 'emerald green',
+};
+
+/** The swatch name a colour belongs to ("black" -> "jet black"). */
+export function hairSwatchName(name) {
+    const n = String(name || '').trim().toLowerCase().split(/\s+with\b/)[0];
+    return COLOUR_ALIASES[n] || n;
+}
+
+export function hairColourHex(name) {
+    const n = hairSwatchName(name);
+    for (const { items } of HAIR_COLOURS) {
+        const hit = items.find(([k]) => k === n);
+        if (hit) return hit[1];
+    }
+    return '';
 }
 
 // ---------- nail length and shape ----------
@@ -180,7 +299,7 @@ export function nailText(form, look) {
 /** Fields kept across looks (hair colour; nail length and shape), how to read them, and how to compose the text. */
 export const KEEPERS = {
     hair: {
-        fields: [{ key: 'colour', label: 'Hair colour', type: 'text', placeholder: 'e.g. jet black, copper, honey blonde with dark roots' }],
+        fields: [{ key: 'colour', label: 'Hair colour', type: 'text', palette: 'hair', placeholder: 'e.g. jet black, copper, honey blonde with dark roots' }],
         hint: 'Kept when you switch styles. Leave empty to describe the style only.',
         read: (w, text) => ({ colour: w.hairColor ?? hairColourOf(text) }),
         store: (w, v) => { w.hairColor = v.colour || ''; },

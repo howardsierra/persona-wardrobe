@@ -5,7 +5,7 @@ import { ctx, getSettings, getWardrobe, getOwnerLabel, uniqueId, validIcon, save
 import { updatePromptInjection } from './prompts.js';
 import { esc, icon, snippet } from './html.js';
 import { status, styleWardrobe, undoStyling, canUndo, personaDescription, descriptionChangedSinceStyling, listProfiles, pendingLooks } from './stylist.js';
-import { openBuilder, openLooks, openPicker, refreshPopups } from './builder.js';
+import { openBuilder, openLooks, openPicker, openHairColour, refreshPopups } from './builder.js';
 import { SIDECAR_PROVIDERS, getSidecar, setSidecar, sidecarModels, testSidecar } from './sidecar.js';
 
 const PANEL_ID = 'persona_wardrobe_settings';
@@ -532,7 +532,7 @@ function renderExtras() {
                 ${picker}
                 <textarea class="text_pole pw-text" rows="2" placeholder="${esc(placeholder)}" aria-label="${esc(e.label || 'Detail')}">${esc(e.text)}</textarea>
                 ${e.id === 'makeup' ? `<div class="pw-card-actions"><button type="button" class="pw-btn pw-btn-ghost" data-action="browse" data-kind="makeup">${icon('palette')}<span>Browse looks</span></button></div>` : ''}
-                ${e.id === 'hair' ? `<div class="pw-card-actions"><button type="button" class="pw-btn pw-btn-ghost" data-action="browse" data-kind="hair">${icon('scissors')}<span>Browse hairstyles</span></button></div>` : ''}
+                ${e.id === 'hair' ? `<div class="pw-card-actions"><button type="button" class="pw-btn pw-btn-ghost" data-action="browse" data-kind="hair">${icon('scissors')}<span>Browse hairstyles</span></button><button type="button" class="pw-btn pw-btn-ghost" data-action="hair-colour">${icon('palette')}<span>Hair colour</span></button></div>` : ''}
                 ${e.id === 'nails' ? `<div class="pw-card-actions"><button type="button" class="pw-btn pw-btn-ghost" data-action="browse" data-kind="nails">${icon('hand-sparkles')}<span>Browse nail art</span></button></div>` : ''}
             </div>
         </div>`;
@@ -588,6 +588,9 @@ function bindExtras() {
                 break;
             case 'browse':
                 openPicker(btn.dataset.kind);
+                return;
+            case 'hair-colour':
+                openHairColour();
                 return;
             case 'delete':
                 if (e.text.trim() && !confirm(`Remove "${e.label}"?`)) return;

@@ -1451,7 +1451,100 @@
 
 .persona-wardrobe .pw-m-keep-hint {
     grid-column: 1 / -1;
-    margin-top: 4px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px 10px;
+    margin-top: 6px;
+}
+
+.persona-wardrobe .pw-m-keep-wide {
+    grid-column: 1 / -1;
+}
+
+/* ---------- hair colour palette ---------- */
+
+.persona-wardrobe .pw-hc {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.persona-wardrobe .pw-hc-label {
+    margin-bottom: 4px;
+    font-size: 0.7em;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--pw-faint);
+}
+
+.persona-wardrobe .pw-hc-swatches,
+.persona-wardrobe .pw-hc-effects {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.persona-wardrobe .pw-hc-swatch {
+    position: relative;
+    display: inline-grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    background:
+        linear-gradient(160deg, rgba(255, 255, 255, .28), rgba(255, 255, 255, 0) 45%, rgba(0, 0, 0, .18)),
+        var(--hc, transparent);
+    box-shadow: 0 0 0 1px var(--pw-border) inset, 0 1px 3px rgba(0, 0, 0, .25);
+    cursor: pointer;
+    transition: transform .15s var(--pw-ease), border-color .15s;
+}
+
+.persona-wardrobe .pw-hc-swatch:hover {
+    transform: scale(1.12);
+}
+
+.persona-wardrobe .pw-hc-swatch.is-active {
+    border-color: var(--pw-accent);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--pw-accent) 40%, transparent), 0 1px 3px rgba(0, 0, 0, .25);
+}
+
+.persona-wardrobe .pw-hc-wheel {
+    background: conic-gradient(#d33b3b, #f2cf45, #4f9d5d, #3f72d6, #8a5cd0, #d33b3b);
+    color: #fff;
+    font-size: 0.75em;
+    overflow: hidden;
+}
+
+.persona-wardrobe .pw-hc-wheel i {
+    filter: drop-shadow(0 1px 1px rgba(0, 0, 0, .6));
+}
+
+.persona-wardrobe .pw-hc-wheel input[type="color"] {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.persona-wardrobe .pw-hc-field {
+    margin-top: 12px;
+}
+
+.persona-wardrobe .pw-hc-field .text_pole {
+    width: 100%;
+    margin: 0;
+}
+
+.persona-wardrobe .pw-hc-preview {
+    margin-top: 12px;
 }
 
 .persona-wardrobe .pw-m-filters {
