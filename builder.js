@@ -782,6 +782,12 @@ export function openPicker(kind) {
         }
         const use = e.target.closest('[data-m-use]');
         if (use) { usePick(use.dataset.mUse); return; }
+        const copy = e.target.closest('[data-m-copy]');
+        if (copy) {
+            const look = pk.cfg.lib.all().find(l => l.id === copy.dataset.mCopy);
+            if (look) copyText(pk.cfg.text(look, pk), copy);
+            return;
+        }
         if (e.target.closest('[data-m-clear-filters]')) {
             pk.attrs = {};
             pk.query = '';
@@ -911,12 +917,38 @@ function renderPicker({ toTop = false } = {}) {
             <div class="pw-m-look-head"><b>${esc(l.title)}</b><span class="pw-m-tag">${esc(names[l.section] || '')}</span></div>
             <div class="pw-m-look-text">${esc(text)}</div>
             ${isPicked && pk.note ? `<div class="pw-look-why">${icon('lightbulb')}<span>${esc(pk.note)}</span></div>` : ''}
-            <button type="button" class="pw-btn${isPicked ? ' is-primary' : ' pw-btn-ghost'}" data-m-use="${esc(l.id)}" ${wearing ? 'disabled' : ''}>
-                ${icon(wearing ? 'check' : cfg.icon)}<span>${wearing ? 'Wearing' : 'Use this'}</span>
-            </button>
+            <div class="pw-m-look-actions">
+                <button type="button" class="pw-btn${isPicked ? ' is-primary' : ' pw-btn-ghost'}" data-m-use="${esc(l.id)}" ${wearing ? 'disabled' : ''}>
+                    ${icon(wearing ? 'check' : cfg.icon)}<span>${wearing ? 'Wearing' : 'Use this'}</span>
+                </button>
+                <button type="button" class="pw-icon-btn" data-m-copy="${esc(l.id)}" title="Copy the description (for image prompts or a character card)" aria-label="Copy description">${icon('copy')}</button>
+            </div>
         </div>`;
     }).join('') : emptyMessage();
     if (toTop) body.querySelector('[data-m-scroll]').scrollTop = 0;
+}
+
+/** Copy text to the clipboard (with a fallback for pages where the Clipboard API is blocked). */
+async function copyText(text, button) {
+    let ok = false;
+    try {
+        await navigator.clipboard.writeText(text);
+        ok = true;
+    } catch {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0;';
+        document.body.appendChild(ta);
+        ta.select();
+        try { ok = document.execCommand('copy'); } catch { ok = false; }
+        ta.remove();
+    }
+    if (ok && button) {
+        button.innerHTML = icon('check');
+        setTimeout(() => { if (button.isConnected) button.innerHTML = icon('copy'); }, 1200);
+    }
+    toast(ok ? 'success' : 'error', ok ? 'Copied.' : "Couldn't copy here. Long-press the description to select it instead.");
 }
 
 /** Why the list is empty, with a way out when filters are the reason. */

@@ -1,7 +1,7 @@
 // Persona Wardrobe - looks libraries for the makeup, hair and nail pickers.
 // Makeup looks and most hairstyles come from CLOVER OOC by aceenvw (https://github.com/aceeenvw/clover-ooc),
-// used with credit. The Black hairstyles (data/hair-black.json), makeup for Black skin tones (data/makeup-black.json)
-// and nail art (data/nails.json) are Persona Wardrobe's own.
+// used with credit. The Black hairstyles (data/hair-black.json), men's hairstyles (data/hair-men.json), makeup for
+// Black skin tones (data/makeup-black.json) and nail art (data/nails.json) are Persona Wardrobe's own.
 
 import { LOG } from './config.js';
 
@@ -98,6 +98,7 @@ export const hairLib = createLibrary({
     name: 'hairstyles',
     files: [
         { file: 'hair-black.json', group: 'Black hairstyles' },
+        { file: 'hair-men.json', group: "Men's hairstyles" },
         { file: 'hair.json', group: 'CLOVER OOC' },
     ],
     credit: { text: `Most hairstyles ${CLOVER.text}`, url: CLOVER.url },

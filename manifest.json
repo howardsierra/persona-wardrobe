@@ -6,7 +6,7 @@
     "js": "index.js",
     "css": "style.css",
     "author": "howardsierra",
-    "version": "1.11.3",
+    "version": "1.12.0",
     "homePage": "https://github.com/howardsierra/persona-wardrobe",
     "auto_update": true
 }

@@ -24,7 +24,9 @@ It works in [SillyTavern](https://github.com/SillyTavern/SillyTavern) and [Rever
   - Search them, get a surprise pick, or press **Match my outfit** and the stylist picks the look that suits what you're wearing and what's happening, and says why.
 - **Hair picker.** **Browse hairstyles** on the Hair card opens over 300 hairstyles:
   - a **Black hairstyles** collection of 110 styles: braids and cornrows (knotless, stitch, lemonade…), Fulani braids (classic, knotless, boho, flip-over, heart part, zig-zag, bob, jumbo, with cowrie shells or gold thread, ponytail, half-up, stitch, men's Fulani-inspired cornrows…), Jayda Wayda braids (Fulani or feed-in braids in front with crochet curls, deep wave, body wave or bone-straight hair at the back, curly bob, half-up, side swoop, reverse…), twists and locs (Senegalese, passion, faux, butterfly, microlocs…), natural styles (afros, puffs, twist-outs, Bantu knots, wash-and-gos…), pressed and sleek styles (silk press, finger waves…), men's cuts and waves (360 waves, high-tops, fades, sponge twists…) and wraps, bonnets and durags
+  - a **men's hairstyles** collection of 78 styles: fades and tapers, short and textured cuts, classic and slick styles, medium and layered cuts (curtains, mullets, wolf cuts, two-block), curly and coily cuts, braids, locs and twists, long and tied styles, and fantasy and period looks (elves, knights, Vikings, pirates, Regency, 1920s, 1970s…)
   - 230 more from CLOVER OOC, from pixie cuts to fantasy and historic styles.
+  - Every style has a **Copy** button that copies its description (with the hair colour you've typed in), for image prompts or a character card, without changing your persona.
   - Filter by length, texture, vibe and cut, or search. Your **hair colour** is picked up from your current hair and kept when you switch styles.
 - **Hair colour picker.** **Hair colour** on the Hair card (or the palette in the hair picker) recolours your hair and keeps the style: natural and fashion swatches, effects (dark roots, highlights, balayage, ombré, skunk stripe, money pieces, peekaboo colour, grey streaks), and a **Custom…** colour wheel that names whatever colour you pick.
   - **Match my look** has the stylist pick a style that suits your outfit and the scene and that your hair could realistically be styled into.
@@ -91,8 +93,8 @@ Then open the Extensions panel and expand **Persona Wardrobe**.
 
 The outfit builder's clothing pieces, the makeup looks and most hairstyles come from [CLOVER OOC](https://github.com/aceeenvw/clover-ooc) by **aceenvw**, used under its license, which requires this credit and link for public reuse.
 They are in `data/pieces.json`, `data/makeup.json` and `data/hair.json`; please keep this credit if you share or adapt the extension.
-The Black hairstyles (`data/hair-black.json`), makeup for Black skin tones (`data/makeup-black.json`) and nail art (`data/nails.json`) were written for Persona Wardrobe and are MIT like the code.
+The Black hairstyles (`data/hair-black.json`), men's hairstyles (`data/hair-men.json`), makeup for Black skin tones (`data/makeup-black.json`) and nail art (`data/nails.json`) were written for Persona Wardrobe and are MIT like the code.
 
 ## License
 
-The code, `data/hair-black.json`, `data/makeup-black.json` and `data/nails.json` are MIT. `data/pieces.json`, `data/makeup.json` and `data/hair.json` are not covered by the MIT license: it stays under [CLOVER OOC's terms](https://github.com/aceeenvw/clover-ooc#-license) (credit aceenvw and link the repository; don't claim it as your own or repackage it for sale).
+The code, `data/hair-black.json`, `data/hair-men.json`, `data/makeup-black.json` and `data/nails.json` are MIT. `data/pieces.json`, `data/makeup.json` and `data/hair.json` are not covered by the MIT license: it stays under [CLOVER OOC's terms](https://github.com/aceeenvw/clover-ooc#-license) (credit aceenvw and link the repository; don't claim it as your own or repackage it for sale).

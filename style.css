@@ -1665,8 +1665,15 @@
     line-height: 1.45;
 }
 
-.persona-wardrobe .pw-m-look .pw-btn {
-    align-self: flex-start;
+.persona-wardrobe .pw-m-look-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.persona-wardrobe .pw-m-look-text {
+    user-select: text;
+    -webkit-user-select: text;
 }
 
 /* ---------- picker layout: a short header and a results list that always has room ---------- */
