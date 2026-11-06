@@ -936,7 +936,14 @@
 
 .pw-modal-backdrop {
     position: fixed;
-    inset: 0;
+    /* An explicit viewport size rather than inset: 0. SillyTavern on phones puts a transform on <html>,
+       which makes <html> (zero pixels tall there) the box that fixed elements are sized against. */
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    box-sizing: border-box;
     z-index: 10050;
     display: grid;
     place-items: center;
@@ -1962,4 +1969,9 @@
         border-radius: 20px 20px 0 0;
         padding-bottom: env(safe-area-inset-bottom);
     }
+}
+
+.persona-wardrobe .pw-version {
+    margin-top: 12px;
+    text-align: right;
 }

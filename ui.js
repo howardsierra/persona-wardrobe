@@ -295,6 +295,7 @@ export function setupUI(attempt = 0) {
                                 </select>
                             </div>
                         </div>
+                        <div class="pw-hint pw-version" id="pw_version"></div>
                     </div>
                 </details>
             </div>
@@ -848,4 +849,10 @@ export function setupMenuItem(attempt = 0) {
     const open = () => setTimeout(openQuick, 0);
     item.addEventListener('click', open);
     item.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
+}
+
+/** Show which version of the extension is running, at the bottom of Settings. */
+export function setVersionLabel(version) {
+    const el = $id('pw_version');
+    if (el) el.textContent = version ? `Persona Wardrobe ${version}` : '';
 }

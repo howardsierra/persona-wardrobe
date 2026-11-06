@@ -3,7 +3,7 @@
 
 import { LOG, NONE_ID } from './config.js';
 import { ctx, getSettings, getWardrobe, getWardrobeKey, loadPersonaModule } from './state.js';
-import { setupUI, setupMenuItem, syncUI } from './ui.js';
+import { setupUI, setupMenuItem, syncUI, setVersionLabel } from './ui.js';
 import { updatePromptInjection } from './prompts.js';
 import { hasTag, applyTag, stripMessage, rerenderMessage } from './tags.js';
 import { registerCommands } from './commands.js';
@@ -23,6 +23,39 @@ function ensureStylesheet() {
     } catch (e) {
         console.error(LOG, 'stylesheet load error', e);
     }
+}
+
+// The version actually running: read from the manifest next to this file, which is the copy the browser loaded.
+async function runningVersion() {
+    try {
+        const r = await fetch(new URL('./manifest.json', import.meta.url), { cache: 'no-store' });
+        return r.ok ? (await r.json()).version || '' : '';
+    } catch {
+        return '';
+    }
+}
+
+// SillyTavern can have an extension installed both for one user and for all users. Its file server then
+// loads the all-users copy even though Manage Extensions lists the user's copy, so updates seem not to apply.
+async function checkDoubleInstall(version) {
+    const c = ctx();
+    // Only SillyTavern has per-user and all-users installs (Reverie sets __RV_SHIM__ and has neither).
+    if (typeof c?.getRequestHeaders !== 'function' || globalThis.__RV_SHIM__) return;
+    const folder = decodeURIComponent(new URL('.', import.meta.url).pathname.split('/').filter(Boolean).pop() || '');
+    if (!folder) return;
+    try {
+        const headers = c.getRequestHeaders();
+        const ask = async global => {
+            const r = await fetch('/api/extensions/version', { method: 'POST', headers, body: JSON.stringify({ extensionName: folder, global }) });
+            return r.ok;
+        };
+        const [local, global] = await Promise.all([ask(false), ask(true)]);
+        if (!local || !global) return;
+        console.warn(LOG, `installed twice ("${folder}" for this user and for all users); running ${version || 'an unknown version'}`);
+        globalThis.toastr?.warning?.(
+            `Persona Wardrobe is installed twice (just for you, and for all users). SillyTavern is running ${version ? `version ${version}` : 'one of them'}, which may be the older copy. Open Manage Extensions and delete one, then reload.`,
+            'Wardrobe', { timeOut: 0, extendedTimeOut: 0, closeButton: true, timeout: 0 });
+    } catch { /* not SillyTavern, or the API isn't there */ }
 }
 
 // Messages whose tags we stripped before render, so the rendered block can be refreshed.
@@ -138,6 +171,10 @@ jQuery(async () => {
 
         setInterval(watchKey, 1500);
         scheduleAutoStyle();
+        runningVersion().then(v => {
+            setVersionLabel(v);
+            checkDoubleInstall(v);
+        });
         console.log(LOG, 'loaded');
     } catch (e) {
         console.error(LOG, 'init error', e);

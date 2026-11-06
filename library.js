@@ -196,7 +196,14 @@ export function recolourHair(text, colour) {
         const re = new RegExp(old.split(' ').map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('[\\s,]+'), 'i');
         if (re.test(t)) return sentence(t.replace(re, String(colour || '').trim()).replace(/^\s+/, ''));
     }
-    return sentence(phrase ? `${phrase}, ${t.charAt(0).toLowerCase()}${t.slice(1)}` : t);
+    return sentence(phrase ? `${phrase}, ${lowerFirst(t)}` : t);
+}
+
+// Names that keep their capital when a description is moved mid-sentence.
+const PROPER_START = /^(Fulani|Jayda|Senegalese|Marley|Bantu|Ghana|Hollywood|French|Dutch|Caesar|Victorian|Edwardian|Regency|Greek|Roman|Viking|Celtic|Japanese|Korean|Chinese|Bohemian|Gibson|Princess|Leia)\b/;
+
+function lowerFirst(t) {
+    return PROPER_START.test(t) ? t : t.charAt(0).toLowerCase() + t.slice(1);
 }
 
 // ---------- hair colour palette ----------

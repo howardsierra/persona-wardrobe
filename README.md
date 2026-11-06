@@ -82,6 +82,11 @@ Then open the Extensions panel and expand **Persona Wardrobe**.
 - The current persona is read from SillyTavern's persona manager (by avatar), so two personas with the same name still get separate wardrobes.
 - Existing data from the original Wardrobe extension isn't imported. It uses a different settings key, so both can be installed side by side (but don't enable both, or the model gets two clothing prompts).
 
+## Troubleshooting
+
+- **The version at the bottom of Settings** is the copy that's actually running.
+- **SillyTavern: an update doesn't seem to apply.** If Persona Wardrobe was ever installed *for all users* as well as *just for you*, SillyTavern's file server loads the all-users copy, even though Manage Extensions shows your copy's version. Delete one of them in Manage Extensions (or remove `public/scripts/extensions/third-party/persona-wardrobe` from your SillyTavern folder), then reload. From 1.11.2 on, the extension warns you when this happens.
+
 ## Credits
 
 The outfit builder's clothing pieces, the makeup looks and most hairstyles come from [CLOVER OOC](https://github.com/aceeenvw/clover-ooc) by **aceenvw**, used under its license, which requires this credit and link for public reuse.
