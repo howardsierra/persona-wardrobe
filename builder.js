@@ -628,7 +628,8 @@ const PICKERS = {
                 { key: 'gender', label: 'Any cut', options: [['f', "Women's"], ['m', "Men's"]] },
             ];
         },
-        defaults: () => ({ gender: genderPref() }),
+        // The picker shows every cut; only the stylist's "Match" leans towards the persona's guessed cut.
+        matchAttrs: () => ({ gender: genderPref() }),
         text: (look, st) => KEEPERS.hair.compose(st.keep, look),
         used: (name, look) => `${name}'s hair is now ${look.title}.`,
     },
@@ -678,7 +679,7 @@ export function openPicker(kind) {
     if (!cfg) return;
     const w = getWardrobe();
     pk = {
-        kind, cfg, section: '', query: '', attrs: cfg.defaults?.() || {}, pickedId: '', note: '', busy: false,
+        kind, cfg, section: '', query: '', attrs: {}, pickedId: '', note: '', busy: false,
         keep: cfg.keep ? cfg.keep.read(w, pickerDetail(cfg)?.text) : {},
         keepOpen: false,
         filtersOpen: wideScreen(),
@@ -780,7 +781,14 @@ export function openPicker(kind) {
             return;
         }
         const use = e.target.closest('[data-m-use]');
-        if (use) usePick(use.dataset.mUse);
+        if (use) { usePick(use.dataset.mUse); return; }
+        if (e.target.closest('[data-m-clear-filters]')) {
+            pk.attrs = {};
+            pk.query = '';
+            body.querySelector('[data-m-query]').value = '';
+            renderFilters();
+            renderPicker({ toTop: true });
+        }
     });
     foot.querySelector('[data-m-random]').addEventListener('click', () => {
         const look = cfg.lib.random({ section: pk.section, query: pk.query, attrs: pk.attrs });
@@ -907,8 +915,25 @@ function renderPicker({ toTop = false } = {}) {
                 ${icon(wearing ? 'check' : cfg.icon)}<span>${wearing ? 'Wearing' : 'Use this'}</span>
             </button>
         </div>`;
-    }).join('') : '<div class="pw-hint">Nothing matches. Try another word or loosen the filters.</div>';
+    }).join('') : emptyMessage();
     if (toTop) body.querySelector('[data-m-scroll]').scrollTop = 0;
+}
+
+/** Why the list is empty, with a way out when filters are the reason. */
+function emptyMessage() {
+    const labels = {};
+    for (const f of pk.cfg.filters()) {
+        const v = pk.attrs[f.key];
+        if (v) labels[f.key] = f.options.find(([k]) => k === v)?.[1] || v;
+    }
+    const active = Object.values(labels);
+    if (pk.query.trim()) active.unshift(`"${pk.query.trim()}"`);
+    if (!active.length) return '<div class="pw-hint">Nothing here yet.</div>';
+    return `
+        <div class="pw-m-empty">
+            <div class="pw-hint">No styles here match ${esc(active.join(', '))}.</div>
+            <button type="button" class="pw-btn" data-m-clear-filters>${icon('eraser')}<span>Clear filters</span></button>
+        </div>`;
 }
 
 function showPicked(id, note) {
@@ -933,8 +958,11 @@ async function matchPick() {
     try {
         await state.cfg.lib.load();
         // Respect the current filters when they still leave a real choice.
-        let pool = state.cfg.lib.filter({ section: state.section, query: state.query, attrs: state.attrs });
-        if (pool.length < 3) pool = state.cfg.lib.filter({ attrs: state.cfg.defaults?.() || {} });
+        // The current filters, plus the persona's likely cut when no cut was chosen; loosen if too few remain.
+        const lean = { ...(state.cfg.matchAttrs?.() || {}), ...Object.fromEntries(Object.entries(state.attrs).filter(([, v]) => v)) };
+        let pool = state.cfg.lib.filter({ section: state.section, query: state.query, attrs: lean });
+        if (pool.length < 3) pool = state.cfg.lib.filter({ section: state.section, query: state.query, attrs: state.attrs });
+        if (pool.length < 3) pool = state.cfg.lib.filter({ attrs: state.cfg.matchAttrs?.() || {} });
         if (pool.length < 3) pool = state.cfg.lib.all();
         const pick = await chooseLook(state.kind, pool);
         if (pk !== state) return;
