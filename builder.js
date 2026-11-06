@@ -9,7 +9,7 @@ import {
     loadCatalog, catalogLoaded, filterPieces, randomPiece, guessGender,
 } from './catalog.js';
 import { status, requestLooks, pendingLooks, planOutfits, wearLook, dismissLooks, addOutfitFromPieces, lookText, personaDescription, chooseLook } from './stylist.js';
-import { makeupLib, hairLib, nailsLib, sentence, KEEPERS, HAIR_COLOURS, HAIR_EFFECTS, nearestHairColour, hairColourHex, hairSwatchName, recolourHair, hairColourOf } from './library.js';
+import { makeupLib, hairLib, nailsLib, sentence, KEEPERS, NAIL_LENGTHS, NAIL_SHAPES, HAIR_COLOURS, HAIR_EFFECTS, nearestHairColour, hairColourHex, hairSwatchName, recolourHair, hairColourOf } from './library.js';
 
 const BUILDER_ID = 'persona_wardrobe_builder';
 const LOOKS_ID = 'persona_wardrobe_looks';
@@ -39,11 +39,11 @@ function userName() {
 
 const openFrames = new Map();
 
-function openFrame(id, { title, sub = '', iconName, wide = false, onClose = null }) {
+function openFrame(id, { title, sub = '', iconName, wide = false, modalClass = '', onClose = null }) {
     closeFrame(id);
     document.body.insertAdjacentHTML('beforeend', `
     <div id="${id}" class="persona-wardrobe pw-modal-backdrop">
-        <div class="pw-modal${wide ? ' pw-modal-wide' : ''}" role="dialog" aria-modal="true" aria-label="${esc(title)}">
+        <div class="pw-modal${wide ? ' pw-modal-wide' : ''}${modalClass ? ` ${modalClass}` : ''}" role="dialog" aria-modal="true" aria-label="${esc(title)}">
             <div class="pw-modal-head">
                 <span class="pw-head-badge">${icon(iconName)}</span>
                 <div class="pw-modal-titles">
@@ -65,6 +65,10 @@ function openFrame(id, { title, sub = '', iconName, wide = false, onClose = null
     root.addEventListener('click', e => {
         if (e.target === root || e.target.closest('.pw-modal-close')) close();
     });
+    // SillyTavern closes its open drawers on any press outside them; keep presses in our popups to ourselves.
+    for (const type of ['mousedown', 'touchstart', 'pointerdown']) {
+        root.addEventListener(type, e => e.stopPropagation(), { passive: true });
+    }
     document.addEventListener('keydown', onKey, true);
     openFrames.set(id, { onKey, onClose });
     return {
@@ -427,6 +431,8 @@ function bindBuilder() {
             setSlot(slot.dataset.slot);
             renderBuilder();
             renderResults();
+            // On phones the piece list sits below the slots; bring it into view.
+            body.querySelector('.pw-b-picker')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
             return;
         }
         const piece = t.closest('[data-piece]');
@@ -579,6 +585,10 @@ const PICKER_ID = 'persona_wardrobe_picker';
 
 const nice = t => String(t).replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 
+const NAIL_LABEL = Object.fromEntries([...NAIL_LENGTHS, ...NAIL_SHAPES]);
+// Wide screens show the filters straight away; phones keep them behind a button.
+const wideScreen = () => globalThis.matchMedia?.('(min-width: 700px)').matches;
+
 const PICKERS = {
     makeup: {
         lib: makeupLib,
@@ -606,6 +616,9 @@ const PICKERS = {
         matchTitle: 'Let the stylist pick a style that suits your hair, outfit and the scene',
         clear: null,
         keep: KEEPERS.hair,
+        keepIcon: 'palette',
+        keepSummary: k => `Hair colour: ${k.colour || 'not set'}`,
+        hasFilters: true,
         filters: () => {
             const vibes = [...new Set(hairLib.all().flatMap(l => l.vibes || []))].sort();
             return [
@@ -630,6 +643,9 @@ const PICKERS = {
         matchTitle: 'Let the stylist pick a design that suits your outfit and the scene',
         clear: null,
         keep: KEEPERS.nails,
+        keepIcon: 'hand-sparkles',
+        keepSummary: k => `Length & shape: ${[NAIL_LABEL[k.length], NAIL_LABEL[k.shape]].filter(Boolean).join(', ') || 'not set'}`,
+        hasFilters: true,
         filters: () => {
             const vibes = [...new Set(nailsLib.all().flatMap(l => l.vibes || []))].sort();
             const colours = [...new Set(nailsLib.all().map(l => l.colour).filter(Boolean))].sort();
@@ -664,20 +680,26 @@ export function openPicker(kind) {
     pk = {
         kind, cfg, section: '', query: '', attrs: cfg.defaults?.() || {}, pickedId: '', note: '', busy: false,
         keep: cfg.keep ? cfg.keep.read(w, pickerDetail(cfg)?.text) : {},
+        keepOpen: false,
+        filtersOpen: wideScreen(),
     };
     const state = pk;
     pk.frame = openFrame(PICKER_ID, {
-        title: cfg.title, sub: `For ${userName()}`, iconName: cfg.icon, wide: true,
+        title: cfg.title, sub: `For ${userName()}`, iconName: cfg.icon, wide: true, modalClass: 'pw-modal-picker',
         onClose: () => { if (pk === state) pk = null; },
     });
     const { body, foot } = pk.frame;
     body.innerHTML = `
-        <div class="pw-b-preview pw-m-current">
-            <div class="pw-now-kicker">${esc(cfg.current)}</div>
-            <div data-m-current></div>
+        <div class="pw-m-head">
+        <div class="pw-m-current">
+            <span class="pw-now-kicker">${esc(cfg.current)}</span>
+            <span class="pw-m-current-text" data-m-current></span>
         </div>
         ${cfg.keep ? `
-        <div class="pw-m-keep">
+        <button type="button" class="pw-m-keep-toggle" data-m-keep-toggle aria-expanded="false">
+            ${icon(cfg.keepIcon || 'sliders')}<span data-m-keep-summary></span>${icon('chevron-down', 'pw-m-caret')}
+        </button>
+        <div class="pw-m-keep" data-m-keep-box hidden>
             ${cfg.keep.fields.map(f => `
             <div class="pw-field${f.palette ? ' pw-m-keep-wide' : ''}">
                 <label for="pw_m_${f.key}">${esc(f.label)}</label>
@@ -691,13 +713,19 @@ export function openPicker(kind) {
                 ${cfg.keep.fields.some(f => f.palette === 'hair') ? `<button type="button" class="pw-btn pw-btn-ghost" data-m-recolour title="Change the colour of the hair you have now, keeping the style">${icon('droplet')}<span>Recolour current hair</span></button>` : ''}
             </div>
         </div>` : ''}
-        <label class="pw-b-search pw-m-search">${icon('magnifying-glass')}<input type="search" class="text_pole" data-m-query placeholder="${esc(cfg.search)}" aria-label="Search" /></label>
-        <div class="pw-b-filters pw-m-filters" data-m-filters></div>
+        <div class="pw-m-searchrow">
+            <label class="pw-b-search pw-m-search">${icon('magnifying-glass')}<input type="search" class="text_pole" data-m-query placeholder="${esc(cfg.search)}" aria-label="Search" /></label>
+            ${cfg.hasFilters ? `<button type="button" class="pw-btn pw-btn-ghost pw-m-filter-toggle" data-m-filter-toggle aria-expanded="false" title="Filters">${icon('sliders')}<span class="pw-m-filter-label">Filters</span><span class="pw-m-badge" data-m-filter-count hidden></span></button>` : ''}
+        </div>
+        <div class="pw-b-filters pw-m-filters" data-m-filters hidden></div>
         <div class="pw-m-sections" data-m-sections role="tablist" aria-label="Styles"></div>
         <div class="pw-m-note" data-m-note hidden></div>
-        <div class="pw-m-count pw-hint" data-m-count></div>
-        <div class="pw-m-list" data-m-list></div>
-        ${cfg.lib.credit ? `<a class="pw-credit" href="${cfg.lib.credit.url}" target="_blank" rel="noopener">${esc(cfg.lib.credit.text)} ${icon('arrow-up-right-from-square')}</a>` : ''}`;
+        </div>
+        <div class="pw-m-scroll" data-m-scroll>
+            <div class="pw-m-count pw-hint" data-m-count></div>
+            <div class="pw-m-list" data-m-list></div>
+            ${cfg.lib.credit ? `<a class="pw-credit" href="${cfg.lib.credit.url}" target="_blank" rel="noopener">${esc(cfg.lib.credit.text)} ${icon('arrow-up-right-from-square')}</a>` : ''}
+        </div>`;
     foot.innerHTML = `
         <button type="button" class="pw-btn pw-btn-ghost" data-m-ai title="${esc(cfg.matchTitle)}"><span class="pw-btn-icon">${icon('wand-magic-sparkles')}</span><span>${esc(cfg.match)}</span></button>
         <button type="button" class="pw-icon-btn" data-m-random title="Surprise me">${icon('shuffle')}</button>
@@ -732,15 +760,25 @@ export function openPicker(kind) {
         toast('success', pk.keep.colour ? `${userName()}'s hair is now ${pk.keep.colour}.` : 'Hair colour removed from the description.');
         renderPicker();
     });
-    body.querySelector('[data-m-query]').addEventListener('input', e => { pk.query = e.target.value; renderPicker(); });
+    body.querySelector('[data-m-keep-toggle]')?.addEventListener('click', () => { pk.keepOpen = !pk.keepOpen; renderToggles(); });
+    body.querySelector('[data-m-filter-toggle]')?.addEventListener('click', () => { pk.filtersOpen = !pk.filtersOpen; renderToggles(); });
+    body.querySelector('[data-m-query]').addEventListener('input', e => { pk.query = e.target.value; renderPicker({ toTop: true }); });
     body.addEventListener('change', e => {
         const f = e.target.closest('[data-m-filter]');
-        if (f) { pk.attrs[f.dataset.mFilter] = f.value; renderPicker(); }
-        if (e.target.matches('[data-m-section-select]')) { pk.section = e.target.value; renderPicker(); }
+        if (f) { pk.attrs[f.dataset.mFilter] = f.value; renderPicker({ toTop: true }); }
+        if (e.target.matches('[data-m-section-select]')) { pk.section = e.target.value; renderPicker({ toTop: true }); }
     });
     body.addEventListener('click', e => {
         const sec = e.target.closest('[data-m-section]');
-        if (sec) { pk.section = sec.dataset.mSection; renderPicker(); return; }
+        if (sec) {
+            pk.section = sec.dataset.mSection;
+            renderPicker({ toTop: true });
+            // Centre the tapped pill in its row (scrollIntoView would also scroll the header itself).
+            const row = body.querySelector('[data-m-sections]');
+            const chip = row.querySelector(`[data-m-section="${CSS.escape(pk.section)}"]`);
+            if (chip) row.scrollTo({ left: chip.offsetLeft - (row.clientWidth - chip.offsetWidth) / 2, behavior: 'smooth' });
+            return;
+        }
         const use = e.target.closest('[data-m-use]');
         if (use) usePick(use.dataset.mUse);
     });
@@ -758,6 +796,7 @@ export function openPicker(kind) {
         closeFrame(PICKER_ID);
     });
 
+    renderToggles();
     renderPicker();
     if (!cfg.lib.loaded()) {
         body.querySelector('[data-m-list]').innerHTML = `<div class="pw-hint">${icon('spinner', 'fa-spin')} Loading…</div>`;
@@ -767,14 +806,38 @@ export function openPicker(kind) {
     } else {
         renderFilters();
     }
-    body.querySelector('[data-m-query]').focus({ preventScroll: true });
+    // On phones, focusing the search would pop the keyboard up over the list.
+    if (wideScreen()) body.querySelector('[data-m-query]').focus({ preventScroll: true });
+}
+
+/** The folding parts of the picker header: kept fields and filters. */
+function renderToggles() {
+    if (!pk) return;
+    const { body } = pk.frame;
+    const keepToggle = body.querySelector('[data-m-keep-toggle]');
+    if (keepToggle) {
+        keepToggle.setAttribute('aria-expanded', String(pk.keepOpen));
+        keepToggle.classList.toggle('is-open', pk.keepOpen);
+        body.querySelector('[data-m-keep-summary]').textContent = pk.cfg.keepSummary(pk.keep);
+        body.querySelector('[data-m-keep-box]').hidden = !pk.keepOpen;
+    }
+    const filterToggle = body.querySelector('[data-m-filter-toggle]');
+    if (filterToggle) {
+        filterToggle.setAttribute('aria-expanded', String(pk.filtersOpen));
+        filterToggle.classList.toggle('is-open', pk.filtersOpen);
+        const active = Object.values(pk.attrs).filter(Boolean).length;
+        const badge = body.querySelector('[data-m-filter-count]');
+        badge.hidden = !active;
+        badge.textContent = String(active);
+    }
+    body.querySelector('[data-m-filters]').hidden = !pk.filtersOpen || !pk.cfg.hasFilters;
 }
 
 function renderFilters() {
     if (!pk) return;
     const box = pk.frame.body.querySelector('[data-m-filters]');
     const filters = pk.cfg.filters();
-    box.hidden = !filters.length;
+    box.hidden = !filters.length || !pk.filtersOpen;
     box.innerHTML = filters.map(f => `
         <select class="text_pole" data-m-filter="${f.key}" aria-label="${esc(f.label)}">
             <option value="">${esc(f.label)}</option>
@@ -802,9 +865,10 @@ function renderSections() {
     box.querySelector('[data-m-section-select]').value = pk.section;
 }
 
-function renderPicker() {
+function renderPicker({ toTop = false } = {}) {
     if (!pk) return;
     const { body, foot } = pk.frame;
+    renderToggles();
     const cfg = pk.cfg;
     const current = pickerDetail(cfg)?.text.trim() || '';
     const cur = body.querySelector('[data-m-current]');
@@ -844,14 +908,19 @@ function renderPicker() {
             </button>
         </div>`;
     }).join('') : '<div class="pw-hint">Nothing matches. Try another word or loosen the filters.</div>';
+    if (toTop) body.querySelector('[data-m-scroll]').scrollTop = 0;
 }
 
 function showPicked(id, note) {
     pk.pickedId = id;
     pk.note = note;
     renderPicker();
-    // Wait for the list to render, then bring the pick into view.
-    setTimeout(() => pk?.frame.body.querySelector(`.pw-m-look[data-m-id="${CSS.escape(id)}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 50);
+    // Wait for the list to render, then scroll the results (only) so the pick is in view.
+    setTimeout(() => {
+        const scroll = pk?.frame.body.querySelector('[data-m-scroll]');
+        const card = scroll?.querySelector(`.pw-m-look[data-m-id="${CSS.escape(id)}"]`);
+        if (card) scroll.scrollTo({ top: Math.max(0, card.offsetTop - (scroll.clientHeight - card.offsetHeight) / 2), behavior: 'smooth' });
+    }, 50);
 }
 
 async function matchPick() {

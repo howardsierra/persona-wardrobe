@@ -1662,6 +1662,179 @@
     align-self: flex-start;
 }
 
+/* ---------- picker layout: a short header and a results list that always has room ---------- */
+
+.persona-wardrobe .pw-modal.pw-modal-picker {
+    height: min(88vh, 780px);
+}
+
+.persona-wardrobe .pw-modal-picker .pw-modal-body {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+    padding-bottom: 0;
+}
+
+.persona-wardrobe .pw-m-head {
+    flex: 0 0 auto;
+    max-height: 60%;
+    overflow-y: auto;
+    padding-bottom: 8px;
+}
+
+.persona-wardrobe .pw-m-scroll {
+    position: relative;
+    /* Take whatever height the header leaves, rather than the list's full height. */
+    flex: 1 1 0;
+    min-height: 120px;
+    overflow-y: auto;
+    padding: 2px 0 14px;
+    border-top: 1px solid var(--pw-border);
+    overscroll-behavior: contain;
+}
+
+.persona-wardrobe .pw-m-current {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: var(--pw-radius);
+    border: 1px solid var(--pw-border);
+    background: var(--pw-surface);
+    font-size: 0.86em;
+}
+
+.persona-wardrobe .pw-m-current .pw-now-kicker {
+    flex: 0 0 auto;
+}
+
+.persona-wardrobe .pw-m-current-text {
+    min-width: 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.persona-wardrobe .pw-m-keep-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    margin-top: 8px;
+    padding: 8px 10px;
+    border-radius: var(--pw-radius);
+    border: 1px dashed color-mix(in srgb, var(--pw-accent) 45%, var(--pw-border));
+    background: transparent;
+    font-size: 0.86em;
+    text-align: left;
+    cursor: pointer;
+}
+
+.persona-wardrobe .pw-m-keep-toggle > i:first-child {
+    color: var(--pw-accent);
+}
+
+.persona-wardrobe .pw-m-keep-toggle span {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.persona-wardrobe .pw-m-caret {
+    color: var(--pw-faint);
+    transition: transform .25s var(--pw-ease);
+}
+
+.persona-wardrobe .pw-m-keep-toggle.is-open .pw-m-caret {
+    transform: rotate(180deg);
+}
+
+.persona-wardrobe .pw-m-keep {
+    margin-top: 8px;
+}
+
+.persona-wardrobe .pw-m-searchrow {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.persona-wardrobe .pw-m-searchrow .pw-m-search {
+    flex: 1 1 auto;
+    min-width: 0;
+    margin-top: 0;
+}
+
+.persona-wardrobe .pw-m-filter-toggle {
+    flex: 0 0 auto;
+}
+
+.persona-wardrobe .pw-m-filter-toggle.is-open {
+    border-color: var(--pw-accent);
+    background: var(--pw-tint);
+}
+
+.persona-wardrobe .pw-m-badge {
+    display: inline-grid;
+    place-items: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 999px;
+    color: #fff;
+    background: var(--pw-accent);
+    font-size: 0.75em;
+}
+
+/* One swipeable row of style pills instead of a wall of them. */
+.persona-wardrobe .pw-modal-picker .pw-m-sections {
+    position: relative;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding: 1px 1px 3px;
+    -webkit-mask-image: linear-gradient(90deg, #000 85%, transparent);
+    mask-image: linear-gradient(90deg, #000 85%, transparent);
+}
+
+.persona-wardrobe .pw-modal-picker .pw-m-sections::-webkit-scrollbar {
+    display: none;
+}
+
+.persona-wardrobe .pw-modal-picker .pw-m-chip {
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+
+.persona-wardrobe .pw-modal-picker .pw-m-sections:has(select) {
+    -webkit-mask-image: none;
+    mask-image: none;
+}
+
+.persona-wardrobe .pw-modal-picker .pw-m-count {
+    margin-top: 6px;
+}
+
+@media (max-width: 480px) {
+    .persona-wardrobe .pw-modal.pw-modal-picker {
+        height: 92vh;
+        max-height: 92vh;
+    }
+
+    .persona-wardrobe .pw-m-filter-label {
+        display: none;
+    }
+
+    .persona-wardrobe .pw-m-head {
+        max-height: 55%;
+    }
+}
+
 /* ---------- outfit ideas ---------- */
 
 .persona-wardrobe .pw-l-plan {
