@@ -15,7 +15,6 @@ const BUILDER_ID = 'persona_wardrobe_builder';
 const LOOKS_ID = 'persona_wardrobe_looks';
 const MAKEUP_ID = 'persona_wardrobe_makeup';
 const PAGE = 60;
-const MAX_ACCESSORIES = 8;
 const $id = (id) => document.getElementById(id);
 
 let onChange = () => {};
@@ -245,7 +244,8 @@ function renderPickerHead() {
     const body = b.frame.body;
     const def = SLOTS[b.slot];
     body.querySelector('[data-b-picker-title]').textContent = def.multi ? `Add ${def.label.toLowerCase()}` : `Choose ${def.label.toLowerCase()}`;
-    body.querySelector('[data-b-custom-text]').placeholder = `Or write your own ${def.multi ? 'accessory' : def.label.toLowerCase()}…`;
+    const noun = { accessory: 'accessory', luggage: 'bag or case' }[b.slot] || def.label.toLowerCase();
+    body.querySelector('[data-b-custom-text]').placeholder = `Or write your own ${noun}…`;
 }
 
 function renderResults() {
@@ -288,7 +288,7 @@ function choosePiece(text) {
         const list = b.pieces[k];
         const i = list.indexOf(text);
         if (i >= 0) list.splice(i, 1);
-        else if (list.length < MAX_ACCESSORIES) list.push(text);
+        else if (list.length < SLOTS[k].max) list.push(text);
     } else {
         b.pieces[k] = b.pieces[k] === text ? '' : text;
         if (b.pieces[k]) setSlot(nextEmptySlot(k));
@@ -310,11 +310,13 @@ function surprise(onlySlot = null) {
     const slots = onlySlot ? [onlySlot] : MODES[b.pieces.mode].slots;
     for (const k of slots) {
         if (SLOTS[k].multi) {
+            // Luggage only goes in when asked for; a random outfit shouldn't come with a suitcase.
+            if (!onlySlot && k === 'luggage') continue;
             if (onlySlot || !b.pieces[k].length) {
                 const n = onlySlot ? 1 : 1 + Math.floor(Math.random() * 2);
                 for (let i = 0; i < n; i++) {
                     const p = randomPiece(k, f);
-                    if (p && !b.pieces[k].includes(p) && b.pieces[k].length < MAX_ACCESSORIES) b.pieces[k].push(p);
+                    if (p && !b.pieces[k].includes(p) && b.pieces[k].length < SLOTS[k].max) b.pieces[k].push(p);
                 }
             }
         } else if (onlySlot || !b.pieces[k]) {
@@ -345,7 +347,7 @@ async function stylistPick() {
             // Keep what was already picked; fill the rest.
             for (const k of Object.keys(SLOTS)) {
                 if (SLOTS[k].multi) {
-                    if (!mine.pieces[k].length) mine.pieces[k] = p[k].slice(0, MAX_ACCESSORIES);
+                    if (!mine.pieces[k].length) mine.pieces[k] = p[k].slice(0, SLOTS[k].max);
                 } else if (!mine.pieces[k] && p[k]) {
                     mine.pieces[k] = p[k];
                 }

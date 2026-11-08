@@ -426,7 +426,7 @@ export async function requestLooks({ occasion, count = 3, fixed = null, includeS
         await loadCatalog();
         const context = `${desc} ${occasion}`;
         samples = Object.keys(SLOTS).map(k => {
-            const list = relevantSample(k, context, gender, k === 'accessory' ? 20 : 14);
+            const list = relevantSample(k, context, gender, { accessory: 20, luggage: 10 }[k] || 14);
             return list.length ? `${k}: ${list.join('; ')}` : '';
         }).filter(Boolean).join('\n');
     } catch { /* the catalogue is a nice-to-have; the stylist can still invent pieces */ }
@@ -473,6 +473,7 @@ export async function requestLooks({ occasion, count = 3, fixed = null, includeS
         '',
         'Rules:',
         '- Each outfit is either separates (top + bottom) or a dress / one-piece. Shoes are expected. Outerwear is optional; 0-3 accessories.',
+        '- Add "luggage" (1-2 bags or cases) only when the occasion involves travelling, e.g. a flight, a road trip or checking into a hotel; otherwise leave it empty.',
         `- Fit the occasion, venue, likely weather and ${name}'s personality, body and style. Clothes go in the outfit fields.`,
         ...(makeup ? [`- Also suggest makeup that suits the outfit and occasion in "makeup" (one short sentence, in ${name}'s style; their usual makeup: ${truncate(makeup.text || 'not set', 160)}).`] : []),
         ...(makeupIdeas.length ? ['- Makeup looks you can borrow from or adapt:', ...makeupIdeas.map(l => `  ${l}`)] : []),
@@ -483,7 +484,7 @@ export async function requestLooks({ occasion, count = 3, fixed = null, includeS
         '- Give each a short name (2-4 words) and one sentence on why it suits the occasion.',
         '',
         'Reply with only this JSON:',
-        JSON.stringify({ looks: [{ name: '...', mode: 'separates|dress', top: '', bottom: '', dress: '', outer: '', shoes: '', accessories: [''], ...(makeup ? { makeup: '' } : {}), ...(hair ? { hair: '' } : {}), ...(nailsDetail ? { nails: '' } : {}), why: '...' }] }),
+        JSON.stringify({ looks: [{ name: '...', mode: 'separates|dress', top: '', bottom: '', dress: '', outer: '', shoes: '', accessories: [''], luggage: [], ...(makeup ? { makeup: '' } : {}), ...(hair ? { hair: '' } : {}), ...(nailsDetail ? { nails: '' } : {}), why: '...' }] }),
     );
 
     const system = 'You are a costume designer for an interactive story. You build outfits that fit a character and an occasion. You reply with JSON only.';

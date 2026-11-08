@@ -14,8 +14,9 @@ It works in [SillyTavern](https://github.com/SillyTavern/SillyTavern) and [Rever
   - New, empty wardrobes are styled **automatically** the first time you open a chat.
   - Use **Fill empty slots** to fill in only the blanks, or **Restyle everything** after you've changed the persona. Both can be undone, and the panel tells you when the description has changed since the last styling.
   - Anything the description already says ("always wears silver rings", "messy black hair") is used exactly.
-- **Outfit builder.** Put an outfit together piece by piece: top, bottom (or a dress / one-piece), outerwear, shoes and accessories.
-  - Pick from a catalogue of about 3,000 clothing pieces, filtered by search, style, colour and women's or men's cuts, or type in your own.
+- **Outfit builder.** Put an outfit together piece by piece: top, bottom (or a dress / one-piece), outerwear, shoes, accessories and luggage.
+  - Pick from a catalogue of about 3,200 clothing pieces, filtered by search, style, colour and women's or men's cuts, or type in your own.
+  - Includes extra women's heels (lots of **platforms**: platform pumps, perspex platforms, platform Mary Janes and boots…), a **Designer** shoe filter for women and men (Louboutin, Manolo Blahnik, Jimmy Choo, Amina Muaddi, Versace, Gucci, Prada, Rick Owens, Margiela Tabis…, each described so image models get the look), and **luggage** (carry-ons, aluminium suitcases, weekenders, trunks, Keepalls, hatboxes…). Luggage is added to an outfit as "…, carrying a …".
   - **Surprise me** fills the empty slots at random, and **Stylist pick** has the stylist finish the outfit in your persona's style.
   - Open it with **Build** on any outfit, or **Build outfit** to make a new one.
 - **Makeup picker.** **Browse looks** on the Makeup card opens 121 makeup looks:
@@ -93,8 +94,9 @@ Then open the Extensions panel and expand **Persona Wardrobe**.
 
 The outfit builder's clothing pieces, the makeup looks and most hairstyles come from [CLOVER OOC](https://github.com/aceeenvw/clover-ooc) by **aceenvw**, used under its license, which requires this credit and link for public reuse.
 They are in `data/pieces.json`, `data/makeup.json` and `data/hair.json`; please keep this credit if you share or adapt the extension.
+The extra heels, designer shoes and luggage (`data/pieces-extra.json`) are Persona Wardrobe's own; brand and product names in them belong to their owners and are only used to describe the look.
 The Black hairstyles (`data/hair-black.json`), men's hairstyles (`data/hair-men.json`), makeup for Black skin tones (`data/makeup-black.json`) and nail art (`data/nails.json`) were written for Persona Wardrobe and are MIT like the code.
 
 ## License
 
-The code, `data/hair-black.json`, `data/hair-men.json`, `data/makeup-black.json` and `data/nails.json` are MIT. `data/pieces.json`, `data/makeup.json` and `data/hair.json` are not covered by the MIT license: it stays under [CLOVER OOC's terms](https://github.com/aceeenvw/clover-ooc#-license) (credit aceenvw and link the repository; don't claim it as your own or repackage it for sale).
+The code, `data/pieces-extra.json`, `data/hair-black.json`, `data/hair-men.json`, `data/makeup-black.json` and `data/nails.json` are MIT. `data/pieces.json`, `data/makeup.json` and `data/hair.json` are not covered by the MIT license: it stays under [CLOVER OOC's terms](https://github.com/aceeenvw/clover-ooc#-license) (credit aceenvw and link the repository; don't claim it as your own or repackage it for sale).

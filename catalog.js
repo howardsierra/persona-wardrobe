@@ -1,5 +1,6 @@
 // Persona Wardrobe - clothing pieces catalogue for the outfit builder.
-// Pieces come from CLOVER OOC by aceenvw (https://github.com/aceeenvw/clover-ooc), used with credit.
+// Most pieces come from CLOVER OOC by aceenvw (https://github.com/aceeenvw/clover-ooc), used with credit.
+// data/pieces-extra.json (heels, designer shoes, luggage) is Persona Wardrobe's own.
 
 import { LOG } from './config.js';
 
@@ -12,19 +13,23 @@ export const SLOTS = {
     dress: { label: 'Dress / one-piece', icon: 'person-dress' },
     outer: { label: 'Outerwear', icon: 'vest' },
     shoes: { label: 'Shoes', icon: 'shoe-prints' },
-    accessory: { label: 'Accessories', icon: 'bag-shopping', multi: true },
+    accessory: { label: 'Accessories', icon: 'bag-shopping', multi: true, max: 8 },
+    luggage: { label: 'Luggage', icon: 'suitcase-rolling', multi: true, max: 3 },
 };
 
 export const MODES = {
-    separates: { label: 'Separates', slots: ['top', 'bottom', 'outer', 'shoes', 'accessory'] },
-    dress: { label: 'Dress / one-piece', slots: ['dress', 'outer', 'shoes', 'accessory'] },
+    separates: { label: 'Separates', slots: ['top', 'bottom', 'outer', 'shoes', 'accessory', 'luggage'] },
+    dress: { label: 'Dress / one-piece', slots: ['dress', 'outer', 'shoes', 'accessory', 'luggage'] },
 };
 
-export const OPTIONAL_SLOTS = new Set(['outer', 'accessory']);
+export const OPTIONAL_SLOTS = new Set(['outer', 'accessory', 'luggage']);
 
 export function emptyPieces(mode = 'separates') {
-    return { mode, top: '', bottom: '', dress: '', outer: '', shoes: '', accessory: [] };
+    return { mode, top: '', bottom: '', dress: '', outer: '', shoes: '', accessory: [], luggage: [] };
 }
+
+const cleanList = (list, max) => (Array.isArray(list) ? list : [])
+    .filter(a => typeof a === 'string' && a.trim()).map(a => a.trim().slice(0, 200)).slice(0, max);
 
 // Coerce stored or model-written pieces into the expected shape.
 export function normalizePieces(p) {
@@ -33,8 +38,8 @@ export function normalizePieces(p) {
     for (const k of ['top', 'bottom', 'dress', 'outer', 'shoes']) {
         if (typeof p[k] === 'string') out[k] = p[k].trim().slice(0, 200);
     }
-    const acc = Array.isArray(p.accessory) ? p.accessory : Array.isArray(p.accessories) ? p.accessories : [];
-    out.accessory = acc.filter(a => typeof a === 'string' && a.trim()).map(a => a.trim().slice(0, 200)).slice(0, 8);
+    out.accessory = cleanList(Array.isArray(p.accessory) ? p.accessory : p.accessories, SLOTS.accessory.max);
+    out.luggage = cleanList(Array.isArray(p.luggage) ? p.luggage : typeof p.luggage === 'string' ? [p.luggage] : [], SLOTS.luggage.max);
     // A dress with no top/bottom means dress mode, whatever the model said.
     if (out.dress && !out.top && !out.bottom) out.mode = 'dress';
     return out;
@@ -44,14 +49,24 @@ export function hasAnyPiece(p) {
     return MODES[p.mode].slots.some(k => (Array.isArray(p[k]) ? p[k].length : !!p[k]));
 }
 
-// "Cream cable-knit sweater, charcoal trousers, chunky skate shoes, silver hoops."
+// "cream hard-shell carry-on" -> "a cream hard-shell carry-on" (left alone if it already has one).
+function withArticle(t) {
+    const text = String(t).trim();
+    if (/^(a|an|the|my|his|her|their|two|three|four|several|some|matching|\d)\b/i.test(text)) return text;
+    return `${/^[aeiou]/i.test(text) ? 'an' : 'a'} ${text}`;
+}
+
+// "Cream cable-knit sweater, charcoal trousers, chunky skate shoes, silver hoops, carrying a hard-shell carry-on."
 export function composeText(p) {
     const parts = [];
     for (const k of MODES[p.mode].slots) {
+        if (k === 'luggage') continue;
         const v = p[k];
         if (Array.isArray(v)) parts.push(...v.filter(Boolean));
         else if (v) parts.push(v);
     }
+    const luggage = (p.luggage || []).filter(Boolean).map(withArticle);
+    if (luggage.length) parts.push(`carrying ${luggage.length > 1 ? `${luggage.slice(0, -1).join(', ')} and ${luggage.at(-1)}` : luggage[0]}`);
     if (!parts.length) return '';
     const text = parts.join(', ');
     return text.charAt(0).toUpperCase() + text.slice(1) + (/[.!?]$/.test(text) ? '' : '.');
@@ -65,17 +80,20 @@ let loading = null;
 export async function loadCatalog() {
     if (catalog) return catalog;
     if (!loading) {
-        loading = fetch(new URL('./data/pieces.json', import.meta.url))
-            .then(r => {
-                if (!r.ok) throw new Error(`HTTP ${r.status}`);
-                return r.json();
-            })
-            .then(d => {
+        const get = file => fetch(new URL(`./data/${file}`, import.meta.url)).then(r => {
+            if (!r.ok) throw new Error(`${file}: HTTP ${r.status}`);
+            return r.json();
+        });
+        // The extra pieces are optional: if that file is missing, the main catalogue still works.
+        loading = Promise.all([get('pieces.json'), get('pieces-extra.json').catch(() => ({}))])
+            .then(([d, extra]) => {
                 catalog = {
-                    tags: d.tags || [],
+                    tags: [...new Set([...(extra.tags || []), ...(d.tags || [])])],
                     colors: d.colors || [],
-                    items: (d.items || []).map(([text, cat, color, tags, gender]) => ({
-                        text, cat, color, tags: tags || [], gender: gender || 'fm', search: text.toLowerCase(),
+                    items: [...(extra.items || []), ...(d.items || [])].map(([text, cat, color, tags, gender]) => ({
+                        text, cat, color, gender: gender || 'fm', search: text.toLowerCase(),
+                        // CLOVER's platform shoes aren't tagged; tag them so the Platform filter finds them too.
+                        tags: cat === 'shoes' && /\bplatform/i.test(text) && !(tags || []).includes('platform') ? [...(tags || []), 'platform'] : tags || [],
                     })),
                 };
                 return catalog;
