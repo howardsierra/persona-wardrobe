@@ -16,9 +16,14 @@ export function stripTags(text) {
     return text.replace(STRIP_RE, '').replace(/\n{3,}/g, '\n\n').trimEnd();
 }
 
-function attr(attrs, name) {
-    const m = attrs.match(new RegExp(`${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s/>]+))`, 'i'));
-    return m ? (m[1] ?? m[2] ?? m[3] ?? '').trim() : null;
+// Read the tag's attributes in order into a map. Reading them one after another means text inside a
+// quoted value (jewelry="rings; nails=red") is never mistaken for another attribute.
+function parseAttrs(attrs) {
+    const map = {};
+    for (const m of String(attrs).matchAll(/([a-z][\w-]*)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s/>]+))/gi)) {
+        map[m[1].toLowerCase()] = (m[2] ?? m[3] ?? m[4] ?? '').trim();
+    }
+    return map;
 }
 
 // Apply the last tag in the text to the current wardrobe. Returns true if anything changed.
@@ -26,26 +31,26 @@ export function applyTag(text) {
     if (!getSettings().modelChanges) return false;
     const all = typeof text === 'string' ? [...text.matchAll(new RegExp(TAG_RE.source, 'gi'))] : [];
     if (!all.length) return false;
-    const attrs = all[all.length - 1][1] || '';
+    const attrs = parseAttrs(all[all.length - 1][1] || '');
 
     const w = getWardrobe();
     let changed = false;
 
-    const outfit = attr(attrs, 'outfit');
+    const outfit = attrs.outfit;
     if (outfit) {
         const q = outfit.toLowerCase();
         const target = ['none', 'undressed', 'naked', 'nude'].includes(q) ? NONE_ID : findOutfit(w, outfit)?.id;
         if (target && target !== w.active) { w.active = target; changed = true; }
     }
 
-    const uw = attr(attrs, 'underwear');
+    const uw = attrs.underwear;
     if (uw && /^(on|off|true|false|yes|no)$/i.test(uw)) {
         const on = /^(on|true|yes)$/i.test(uw);
         if (on !== w.underwearOn) { w.underwearOn = on; changed = true; }
     }
 
     for (const e of w.extras) {
-        const text = attr(attrs, e.id);
+        const text = attrs[e.id];
         if (text && text.length <= 500 && text !== e.text.trim()) { e.text = text; changed = true; }
     }
 

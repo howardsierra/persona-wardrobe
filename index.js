@@ -108,7 +108,7 @@ function notifyChange(c) {
     const outfit = w.active === NONE_ID ? null : w.outfits.find(o => o.id === w.active);
     const what = outfit ? `${who} is now wearing ${outfit.label || 'a new outfit'}` : `${who} is now undressed`;
     const uw = w.underwear.trim() ? (w.underwearOn ? ', with underwear' : ', no underwear') : '';
-    try { globalThis.toastr?.info?.(what + uw + '.', 'Wardrobe', { timeOut: 3500 }); } catch { /* ignore */ }
+    try { globalThis.toastr?.info?.(what + uw + '.', 'Wardrobe', { timeOut: 3500, timeout: 3500 }); } catch { /* ignore */ }
 }
 
 function on(c, name, fn) {

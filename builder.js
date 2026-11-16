@@ -38,7 +38,7 @@ function userName() {
 
 const openFrames = new Map();
 
-function openFrame(id, { title, sub = '', iconName, wide = false, modalClass = '', onClose = null }) {
+function openFrame(id, { title, sub = '', iconName, wide = false, modalClass = '', onClose = null, keepOpen = null }) {
     closeFrame(id);
     document.body.insertAdjacentHTML('beforeend', `
     <div id="${id}" class="persona-wardrobe pw-modal-backdrop">
@@ -62,6 +62,8 @@ function openFrame(id, { title, sub = '', iconName, wide = false, modalClass = '
         if (e.key === 'Escape' && [...openFrames.keys()].pop() === id) { e.stopPropagation(); close(); }
     };
     root.addEventListener('click', e => {
+        // A stray tap on the dimmed background shouldn't throw away work in progress.
+        if (e.target === root && keepOpen?.()) return;
         if (e.target === root || e.target.closest('.pw-modal-close')) close();
     });
     // SillyTavern closes its open drawers on any press outside them; keep presses in our popups to ourselves.
@@ -117,11 +119,13 @@ export function openBuilder({ outfitId = null, pieces = null, label = '', onSave
         shown: PAGE,
         onSaved,
         busy: false,
+        initial: JSON.stringify(start),
     };
     const state = b;
     b.frame = openFrame(BUILDER_ID, {
         title: o ? `Build: ${o.label}` : 'Build an outfit', sub: `For ${userName()}`, iconName: 'layer-group', wide: true,
         onClose: () => { if (b === state) b = null; },
+        keepOpen: () => b === state && JSON.stringify(state.pieces) !== state.initial,
     });
     b.frame.body.innerHTML = `
         <div class="pw-b-top">
@@ -373,6 +377,8 @@ function saveBuilder(wear) {
     const pieces = normalizePieces(b.pieces);
     let o = b.outfitId ? w.outfits.find(x => x.id === b.outfitId) : null;
     if (o) {
+        // A description written by hand or by the stylist isn't made of pieces, so saving replaces it.
+        if (o.text.trim() && !o.pieces && !confirm(`Replace the current "${o.label}" description with this build?\n\nCurrent: ${o.text.trim().slice(0, 200)}`)) return;
         o.pieces = pieces;
         o.text = composeText(pieces);
         if (label !== o.label) {

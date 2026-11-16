@@ -188,7 +188,12 @@ function normalizeWardrobe(w) {
 function seedChatWardrobe() {
     const s = getSettings();
     const source = s.chatTemplates[getPairKey()] || s.wardrobes[getPairKey()] || s.wardrobes[getPersonaKey()];
-    return source && typeof source === 'object' ? structuredClone(source) : makeWardrobe();
+    if (!source || typeof source !== 'object') return makeWardrobe();
+    const w = structuredClone(source);
+    // Outfit ideas belong to the story they were suggested in, not to the next chat.
+    delete w.looks;
+    delete w.lookDismissed;
+    return w;
 }
 
 // The wardrobe for the current scope, created on first use.

@@ -375,6 +375,8 @@ function bindHandlers() {
         if (!o) return;
         if (e.target.classList.contains('pw-text')) {
             o.text = e.target.value;
+            // Edited by hand: it no longer matches the pieces it was built from.
+            delete o.pieces;
             card.querySelector('.pw-card-snippet').textContent = snippet(o.text) || 'Empty';
             card.classList.toggle('is-empty', !o.text.trim());
         } else if (e.target.classList.contains('pw-label')) {

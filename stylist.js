@@ -115,14 +115,14 @@ async function ask(system, user, { responseLength = null } = {}) {
 
     if (profileId && typeof c.ConnectionManagerRequestService?.sendRequest === 'function') {
         const messages = [{ role: 'system', content: system }, { role: 'user', content: user }];
-        const res = await c.ConnectionManagerRequestService.sendRequest(profileId, messages, responseLength || 1000,
+        const res = await c.ConnectionManagerRequestService.sendRequest(profileId, messages, Math.max(responseLength || 0, 2000),
             { stream: false, extractData: true, includePreset: true, includeInstruct: true });
         return typeof res === 'string' ? res : (res?.content ?? '');
     }
     if (typeof c.generateRaw === 'function') {
-        const opts = { prompt: user, systemPrompt: system };
-        if (responseLength) opts.responseLength = responseLength;
-        return await c.generateRaw(opts);
+        // No length cap here: the chat's own response length applies. A low cap breaks reasoning models,
+        // which spend the same budget on thinking before they write the JSON.
+        return await c.generateRaw({ prompt: user, systemPrompt: system });
     }
     if (typeof c.generateQuietPrompt === 'function') {
         return await c.generateQuietPrompt({ quietPrompt: `${system}\n\n${user}`, skipWIAN: true });
@@ -235,7 +235,7 @@ export async function styleWardrobe(mode = 'fill', { auto = false } = {}) {
 
     status.styling = true;
     notifyUI();
-    toast('info', `Styling ${name}'s wardrobe from their persona…`, { timeout: 2500 });
+    if (!auto) toast('info', `Styling ${name}'s wardrobe from their persona…`, { timeout: 2500 });
     try {
         const system = 'You are a costume designer for an interactive story. You design wardrobes that fit a character\'s described personality and style. You reply with JSON only.';
         const reply = await ask(system, buildStylistPrompt(w, desc, targets), { responseLength: 1500 });
@@ -250,7 +250,7 @@ export async function styleWardrobe(mode = 'fill', { auto = false } = {}) {
         let filled = 0;
         for (const o of targets.outfits) {
             const v = cleanValue(data?.outfits?.[o.id]);
-            if (v) { o.text = v; filled++; }
+            if (v) { o.text = v; delete o.pieces; filled++; }
         }
         if (targets.underwear) {
             const v = cleanValue(data?.underwear);
@@ -275,7 +275,12 @@ export async function styleWardrobe(mode = 'fill', { auto = false } = {}) {
         return true;
     } catch (e) {
         console.error(LOG, 'styling failed', e);
-        toast('error', `Couldn't style the wardrobe: ${e?.message || e}`);
+        // Automatic styling fails quietly (e.g. no API connected yet) and may try again next time.
+        if (auto) {
+            if (getWardrobeKey() === key) { w.autoStyled = false; save(); }
+        } else {
+            toast('error', `Couldn't style the wardrobe: ${e?.message || e}`);
+        }
         return false;
     } finally {
         status.styling = false;
@@ -352,6 +357,8 @@ export async function sceneCheck() {
 
     const w = getWardrobe();
     if (!w.outfits.some(o => o.text.trim())) return;
+    // Nothing has happened yet in a chat that is only its greeting; the first real reply is checked instead.
+    if (!(c?.chat || []).some(m => m?.is_user)) return;
     const recent = (c?.chat || []).filter(m => m && !m.is_system && typeof m.mes === 'string' && m.mes.trim()).slice(-6);
     if (!recent.length) return;
 

@@ -102,11 +102,21 @@ export async function sidecarChat(messages, { maxTokens = null } = {}) {
     const body = {
         model: sc.model.trim(),
         messages,
-        max_tokens: maxTokens || sc.maxTokens,
+        // The setting is a floor: a small per-task cap would starve reasoning models.
+        max_tokens: Math.max(maxTokens || 0, sc.maxTokens),
         temperature: sc.temperature,
         stream: false,
     };
-    const data = await request('/chat/completions', { method: 'POST', body: JSON.stringify(body) }, sc);
+    const send = b => request('/chat/completions', { method: 'POST', body: JSON.stringify(b) }, sc);
+    let data;
+    try {
+        data = await send(body);
+    } catch (e) {
+        // Newer reasoning models reject max_tokens and a custom temperature; retry once in the form they accept.
+        if (!/max_tokens|max_completion_tokens|temperature/i.test(e?.message || '')) throw e;
+        const { max_tokens, temperature, ...rest } = body;
+        data = await send({ ...rest, max_completion_tokens: max_tokens });
+    }
     const text = contentOf(data);
     if (!text.trim()) throw new Error('the sidecar returned an empty reply');
     return text;
